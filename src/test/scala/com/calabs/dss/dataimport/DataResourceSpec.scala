@@ -1,7 +1,9 @@
 package com.calabs.dss.dataimport
 
-import org.scalatest.FunSpec
+import java.util
 
+import org.scalatest.FunSpec
+import scala.collection.mutable.{Map => MutableMap}
 import scala.io.Source
 
 /**
@@ -12,11 +14,19 @@ import scala.io.Source
 
 class DataResourceSpec extends FunSpec {
 
-  describe("A data resource"){
+  describe("A data resource extractor"){
 
-    it("should correctly parse a JSON data resource"){
-      val mapping = Source.fromURL(getClass.getResource("/json/mapping.txt")).getLines().map(line => line.split("="))
-      val jsonDataResource = JSONResource(DataResourceMapping(Map("")))
+    it("should correctly extract metrics from a JSON data resource"){
+      // Populate data mapping (metric name, metric key)
+      val dataMapping = MutableMap[String,String]()
+      val metricNameKeysFile = Source.fromFile(getClass.getResource("/json/mapping.txt").getPath)
+      val metricNameKeys = for {metricKey <- metricNameKeysFile.getLines()} yield (metricKey.split("=").head, metricKey.split("=").tail.head)
+      metricNameKeys.foreach(nameKey => dataMapping.update(nameKey._1, nameKey._2))
+
+      // Extract metrics from JSONResource
+      val jsonDataResource = JSONResource(DataResourceMapping(dataMapping.toMap), getClass.getResource("/json/example.json").getPath)
+      // Not much idiomatic, but ArrayList is used for array values instead of Scala collections
+      assert(jsonDataResource.extractMetrics == Map(("metric1", Right("bar")), ("metric2", Right(2.0)), ("metric3", Right(new util.ArrayList(util.Arrays.asList(1,2,3))))))
     }
 
     ignore("should correctly parse an XML data resource"){
