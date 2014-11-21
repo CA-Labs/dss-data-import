@@ -1,5 +1,6 @@
-import io.Source
-import java.nio.charset.Charset
+package com.calabs.dss.dataimport
+
+import scala.io.Source
 
 /**
  * Created by Jordi Aranda
@@ -16,7 +17,13 @@ trait DataResourceExtractor {
 }
 
 case class JSONResource(mapping: DataResourceMapping, source: String) extends DataResource with DataResourceExtractor {
-  override def extractMetrics: Map[String, Double] = ???
+  override def extractMetrics: Map[String, Double] = {
+    val sourceFile = Source.fromFile(source)
+    val sourceString = sourceFile.mkString
+    println(s"source string is $sourceString")
+    sourceFile.close()
+    Map(("metric1", 1.0), ("metric2", 1.0))
+  }
 }
 
 case class XMLResource(mapping: DataResourceMapping, source: String) extends DataResource with DataResourceExtractor {
