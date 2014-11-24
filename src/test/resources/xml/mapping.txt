@@ -1,0 +1,4 @@
+metric1=string(/bookstore/book[1]/title)
+metric2=string(/bookstore/book[1]/author)
+metric3=number(/bookstore/book[1]/year)
+metric4=number(/bookstore/book[1]/price)

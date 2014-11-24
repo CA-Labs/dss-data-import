@@ -18,6 +18,8 @@ object MyBuild extends Build {
     file("."),
     settings = buildSettings ++ Seq(
       libraryDependencies ++= Seq(
+        "jaxen" % "jaxen" % "1.1.6",
+        "dom4j" % "dom4j" % "1.6.1",
         "io.gatling" %% "jsonpath" % "0.6.1",
         "com.fasterxml.jackson.core" % "jackson-databind" % "2.4.2",
         "org.scalatest" %% "scalatest" % "2.2.1" % "test"
