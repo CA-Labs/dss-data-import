@@ -100,17 +100,41 @@ object JSONResource {
   def parseJson(s: String) = mapper.readValue(s, classOf[Object])
 }
 
-//case class XMLResource(mapping: DataResourceMapping) extends DataResource with DataResourceExtractor {
-//  override def extractMetrics: Try[Map[String, Either[String, Any]]] = {
-//    val mutableMap = MutableMap[String, Either[String, Any]]()
-//    val metricXPathMapping = mapping.mapping
-//    val xmlFile = Source.fromFile(source)
-//    val xmlInput = xmlFile.mkString
-//    val xml = DocumentHelper.parseText(xmlInput)
-//    metricXPathMapping.foreach{case (metric, key) =>
-//        val metricRawValue = xml.selectObject(key)
-//        mutableMap.update(metric, Right(metricRawValue))
-//    }
-//    mutableMap.toMap
-//  }
-//}
+case class XMLResource(config: DataResourceConfig, mapping: DataResourceMapping) extends DataResource with DataResourceExtractor {
+
+  override def extractMetrics: Try[Map[Metric, MetricValue]] = {
+
+    val c = config.config
+
+    // Potential result
+    val mutableMap = MutableMap[Metric, MetricValue]()
+
+    Try(c match {
+
+      case (dataSource, resourceType, codec) => {
+
+        val m = mapping.mapping
+
+        // Load the XML resource
+        val xmlFile = resourceType match {
+          case ResourceType.XML => Source.fromFile(dataSource, codec)
+          case ResourceType.XML_API => Source.fromURL(dataSource, codec)
+          case _ => throw new IllegalArgumentException(s"Wrong resource type, must be either ${ResourceType.XML} or ${ResourceType.XML_API} for XML data resources.")
+        }
+        val xmlInput = xmlFile.mkString
+        val xml = DocumentHelper.parseText(xmlInput)
+
+        m.foreach{case (metric, key) =>
+          val metricRawValue = xml.selectObject(key)
+          mutableMap.update(metric, metricRawValue)
+        }
+
+        mutableMap.toMap
+
+      }
+
+    })
+
+  }
+
+}

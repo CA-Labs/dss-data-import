@@ -13,9 +13,9 @@ import scala.util.Success
  * 21/11/14
  */
 
-class DataResourceSpec extends FunSpec {
+class JSONDataResourceSpec extends FunSpec {
 
-  describe("A data resource extractor"){
+  describe("A JSON Data Resource extractor"){
 
     it("should correctly extract metrics from a JSON data resource (resourceType=json)"){
       val config = DataResourceUtils.loadConfig(getClass.getResource("/json/file/example-file.ok.config").getPath)
@@ -55,6 +55,15 @@ class DataResourceSpec extends FunSpec {
     it("should fail when trying to extract metrics from a JSON data resource (resourceType=json) with invalid config or mapping files"){
       val config = DataResourceUtils.loadConfig(getClass.getResource("/json/file/example-file.ko.config").getPath)
       val mapping = DataResourceUtils.loadMapping(getClass.getResource("/json/file/example-file.ko.map").getPath)
+      (config, mapping) match {
+        case (Success(c), Success(m)) => assert(false)
+        case _ => assert(true)
+      }
+    }
+
+    it("should fail when trying to extract metrics from a JSON data resource (resourceType=jsonAPI) with invalid config or mapping files"){
+      val config = DataResourceUtils.loadConfig(getClass.getResource("/json/api/example-api.ko.config").getPath)
+      val mapping = DataResourceUtils.loadMapping(getClass.getResource("/json/api/example-api.ko.map").getPath)
       (config, mapping) match {
         case (Success(c), Success(m)) => assert(false)
         case _ => assert(true)

@@ -1,0 +1,4 @@
+metric1=string(/bookstore/book[1]/title)=wrong
+metric2=string(/bookstore/book[1]/author)=wrong
+metric3=number(/bookstore/book[1]/year)=wrong
+metric4=number(/bookstore/book[1]/price)=wrong
