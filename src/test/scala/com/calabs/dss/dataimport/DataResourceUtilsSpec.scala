@@ -13,7 +13,7 @@ class DataResourceUtilsSpec extends FunSpec {
 
   describe("Data Resource Utils") {
 
-    it("should correctly check config files"){
+    it("should correctly parse config files"){
       val correctConfig = Source.fromFile(getClass.getResource("/json/example.ok.config").getPath).getLines
       val incorrectConfig = Source.fromFile(getClass.getResource("/json/example.ko.config").getPath).getLines
       assert(DataResourceUtils.parseConfigLines(correctConfig).map(DataResourceUtils.checkConfigParams(_)).isSuccess)

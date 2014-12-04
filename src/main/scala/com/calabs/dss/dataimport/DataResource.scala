@@ -29,7 +29,7 @@ object TypeAliases {
   type ConfigValue = String
 }
 
-case class DataResourceConfig(config: Map[String, String])
+case class DataResourceConfig(config: (DataSource, ResourceType, Codec))
 
 object ResourceType {
   val WEBSITE = "website"
@@ -39,76 +39,61 @@ object ResourceType {
   val XML_API = "xmlAPI"
 }
 
-case class DataResourceMapping(mapping: Map[String, String])
+case class DataResourceMapping(mapping: Map[Metric, MetricPath])
 
 sealed trait DataResource {
   def config: DataResourceConfig
   def mapping: DataResourceMapping
-  def checkResourceConfig: Try[(DataSource, ResourceType, Codec)] = {
-    // Resource config check (mandatory properties are: source, resourceType and codec)
-    val resourceConfig = config.config
-    val source = resourceConfig.get("source") match {
-      case Some(source) => source
-      case None => throw new NoSuchElementException("Missing source parameter in resource config file.")
-    }
-    val resourceType = resourceConfig.get("resourceType") match {
-      case Some(resourceType) => resourceType
-      case None => throw new NoSuchElementException("Missing resource type parameter in resource config file.")
-    }
-    val codec = resourceConfig.get("codec") match {
-      case Some(codec) => codec
-      case None => throw new NoSuchElementException("Missing code parameter in resource config file.")
-    }
-    Success(source, resourceType, codec)
-  }
 }
 
 trait DataResourceExtractor {
-  def extractMetrics: Try[Map[String, Any]]
+  def extractMetrics: Try[Map[Metric, MetricValue]]
 }
 
-//case class JSONResource(config: DataResourceConfig, mapping: DataResourceMapping) extends DataResource with DataResourceExtractor {
-//
-//  override def extractMetrics: Try[Map[String, Any]] = {
-//
-//    // Check resource config
-//    checkResourceConfig.map {
-//      case (dataSource, resourceType, codec) => {
-//
-//        // Potential result
-//        val mutableMap = MutableMap[String, Any]()
-//
-//        // Metrics mapping
-//        val metricJsonPathMapping = mapping.mapping
-//
-//        // Load the JSON resource
-//        val jsonFile = resourceType match {
-//          case ResourceType.JSON => Source.fromFile(dataSource, codec)
-//          case ResourceType.JSON_API => Source.fromURL(dataSource, codec)
-//          case _ => throw new IllegalArgumentException(s"Wrong resource type, must be either ${ResourceType.JSON} or ${ResourceType.JSON_API} for JSON data resources.")
-//        }
-//        val jsonInput = jsonFile.mkString
-//        val json = JSONResource.parseJson(jsonInput)
-//        jsonFile.close()
-//
-//        metricJsonPathMapping.foreach {
-//          case (metric, key) => {
-//            val metricRawValue = JsonPath.query(key, json)
-//            val metricValue = metricRawValue match {
-//              case Left(error) => throw new IllegalArgumentException(s"Some error occurred when looking up metric $metric: ${error.reason}.")
-//              case Right(value) => Right(value.next())
-//            }
-//            mutableMap.update(metric, metricValue)
-//          }
-//        }
-//
-//        mutableMap.toMap
-//
-//      }
-//    }
-//  }
-//
-//}
+case class JSONResource(config: DataResourceConfig, mapping: DataResourceMapping) extends DataResource with DataResourceExtractor {
+
+  override def extractMetrics: Try[Map[Metric, MetricValue]] = {
+
+    val c = config.config
+
+    // Potential result
+    val mutableMap = MutableMap[Metric, MetricValue]()
+
+    Try(c match {
+
+      case (dataSource, resourceType, codec) => {
+
+        val m = mapping.mapping
+
+        // Load the JSON resource
+        val jsonFile = resourceType match {
+          case ResourceType.JSON => Source.fromFile(dataSource, codec)
+          case ResourceType.JSON_API => Source.fromURL(dataSource, codec)
+          case _ => throw new IllegalArgumentException(s"Wrong resource type, must be either ${ResourceType.JSON} or ${ResourceType.JSON_API} for JSON data resources.")
+        }
+        val jsonInput = jsonFile.mkString
+        val json = JSONResource.parseJson(jsonInput)
+
+        m.foreach {
+          case (metric, key) => {
+            val metricRawValue = JsonPath.query(key, json)
+            val metricValue = metricRawValue match {
+              case Left(error) => throw new IllegalArgumentException(s"Some error occurred when looking up metric $metric: ${error.reason}.")
+              case Right(value) => value.next()
+            }
+            mutableMap.update(metric, metricValue)
+          }
+        }
+
+        mutableMap.toMap
+
+      }
+
+    })
+
+  }
+
+}
 
 object JSONResource {
   lazy val mapper = new ObjectMapper
