@@ -1,0 +1,3 @@
+metric1=$.foo.bar[0].foo=wrong
+metric2=$.bar=wrong
+metric3=$.baz.baz=wrong
