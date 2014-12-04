@@ -17,14 +17,14 @@ class DataResourceSpec extends FunSpec {
 
   describe("A data resource extractor"){
 
-    it("should correctly extract metrics from a JSON data resource (resourceType=file)"){
-      val config = DataResourceUtils.loadConfig(getClass.getResource("/json/example.ok.config").getPath)
-      val mapping = DataResourceUtils.loadMapping(getClass.getResource("/json/example.ok.map").getPath)
+    it("should correctly extract metrics from a JSON data resource (resourceType=json)"){
+      val config = DataResourceUtils.loadConfig(getClass.getResource("/json/file/example-file.ok.config").getPath)
+      val mapping = DataResourceUtils.loadMapping(getClass.getResource("/json/file/example-file.ok.map").getPath)
       (config, mapping) match {
         case (Success(c), Success(m)) => {
           // How to test files that are loaded from a path property read from a file? This will be different between machines!
           // Overwrite data source path by now with one existing relative to resources folder
-          val newConfig = DataResourceConfig(getClass.getResource("/json/example.json").getPath, c._2, c._3)
+          val newConfig = DataResourceConfig(getClass.getResource("/json/file/example-file.json").getPath, c._2, c._3)
           val jsonResource = JSONResource(newConfig, DataResourceMapping(m))
           val metrics = jsonResource.extractMetrics
           assert(metrics.isSuccess)
@@ -36,17 +36,29 @@ class DataResourceSpec extends FunSpec {
       }
     }
 
-    it("should fail when trying to extract metrics from a JSON data resource (resourceType=file) with invalid config or mapping files"){
-      val config = DataResourceUtils.loadConfig(getClass.getResource("/json/example.ko.config").getPath)
-      val mapping = DataResourceUtils.loadMapping(getClass.getResource("/json/example.ko.map").getPath)
+    it("should correctly extract metrics from a JSON data resource (resourceType=jsonAPI)"){
+      val config = DataResourceUtils.loadConfig(getClass.getResource("/json/api/example-api.ok.config").getPath)
+      val mapping = DataResourceUtils.loadMapping(getClass.getResource("/json/api/example-api.ok.map").getPath)
+      (config, mapping) match {
+        case (Success(c), Success(m)) => {
+          val jsonResource = JSONResource(DataResourceConfig(c), DataResourceMapping(m))
+          val metrics = jsonResource.extractMetrics
+          assert(metrics.isSuccess)
+          assert(metrics.get.get("login") == Some("jarandaf"))
+          assert(metrics.get.get("url") == Some("https://api.github.com/users/jarandaf"))
+          assert(metrics.get.get("email") == Some("jordi.aranda@bsc.es"))
+        }
+        case _ => assert(false)
+      }
+    }
+
+    it("should fail when trying to extract metrics from a JSON data resource (resourceType=json) with invalid config or mapping files"){
+      val config = DataResourceUtils.loadConfig(getClass.getResource("/json/file/example-file.ko.config").getPath)
+      val mapping = DataResourceUtils.loadMapping(getClass.getResource("/json/file/example-file.ko.map").getPath)
       (config, mapping) match {
         case (Success(c), Success(m)) => assert(false)
         case _ => assert(true)
       }
-    }
-
-    ignore("should correctly parse an XML data resource"){
-      ???
     }
 
   }
