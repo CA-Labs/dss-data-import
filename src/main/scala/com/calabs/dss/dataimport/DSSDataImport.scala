@@ -29,7 +29,7 @@ object DSSDataImport {
       config => {
         val dssConfig = DataResourceUtils.loadConfig(config.config)
         val dssMapping = DataResourceUtils.loadMapping(config.mapping)
-        val result = Try((dssConfig, dssMapping) match {
+        val result = (dssConfig, dssMapping) match {
           case (Success(c), Success(m)) => {
             val drc = DataResourceConfig(c)
             val drm = DataResourceMapping(m)
@@ -49,7 +49,7 @@ object DSSDataImport {
           case _ => {
             throw new IllegalArgumentException("Neither the resource config file nor the mapping file could be loaded.")
           }
-        })
+        }
         result match {
           case Success(r) => println("OK => " + result.toString)
           case Failure(e) => println("KO => " + e.getMessage)
