@@ -16,15 +16,28 @@ class DataResourceUtilsSpec extends FunSpec {
     it("should correctly parse config files"){
       val correctConfig = Source.fromFile(getClass.getResource("/json/file/example-file.ok.config").getPath).getLines
       val incorrectConfig = Source.fromFile(getClass.getResource("/json/file/example-file.ko.config").getPath).getLines
-      assert(DataResourceUtils.parseConfigLines(correctConfig).map(DataResourceUtils.checkConfigParams(_)).isSuccess)
-      assert(DataResourceUtils.parseConfigLines(incorrectConfig).map(DataResourceUtils.checkConfigParams(_)).isFailure)
+      try {
+        DataResourceUtils.checkConfigParams(DataResourceUtils.parseConfigLines(correctConfig))
+      } catch {
+        case e: Throwable => fail(e.getMessage)
+      }
+      intercept[IllegalArgumentException] {
+        DataResourceUtils.checkConfigParams(DataResourceUtils.parseConfigLines(incorrectConfig))
+      }
     }
 
     it("should correctly parse mapping files"){
       val correctMapping = Source.fromFile(getClass.getResource("/json/file/example-file.ok.map").getPath).getLines
       val incorrectMapping = Source.fromFile(getClass.getResource("/json/file/example-file.ko.map").getPath).getLines
-      assert(DataResourceUtils.parseMappingLines(correctMapping).isSuccess)
-      assert(DataResourceUtils.parseMappingLines(incorrectMapping).isFailure)
+      try {
+        DataResourceUtils.parseMappingLines(correctMapping)
+      } catch {
+        case e: IllegalArgumentException => fail(e.getMessage)
+        case _: Throwable => fail("Unexpected exception while parsing the mapping file.")
+      }
+      intercept[IllegalArgumentException] {
+        DataResourceUtils.parseMappingLines(incorrectMapping)
+      }
     }
 
     it("should correctly load config files"){

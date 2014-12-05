@@ -1,0 +1,2 @@
+name::string(/current/city/@name)
+country::string(/current/city/country)
