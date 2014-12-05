@@ -15,7 +15,8 @@ object DataResourceUtils {
   def loadMapping(path: String) : Try[Map[Metric, MetricPath]] = {
     val sourceFile = Source.fromFile(path)
     val sourceContent = sourceFile.getLines()
-    sourceFile.close()
+    // We should use some library instead of scala.io.Source, using try/catch/finally isn't scalaish code
+    // sourceFile.close()
     parseMappingLines(sourceContent)
   }
 
@@ -32,7 +33,8 @@ object DataResourceUtils {
   def loadConfig(path: String) : Try[(DataSource, ResourceType, Codec)] = {
     val sourceFile = Source.fromFile(path)
     val sourceContent = sourceFile.getLines()
-    sourceFile.close()
+    // We should use some library instead of scala.io.Source, usting try/catch/finally isnt' scalaish code
+    // sourceFile.close()
     parseConfigLines(sourceContent).flatMap(checkConfigParams(_))
   }
 

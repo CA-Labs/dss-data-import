@@ -13,23 +13,34 @@ class DataResourceUtilsSpec extends FunSpec {
 
   describe("Data Resource Utils") {
 
-    ignore("should correctly check config files"){
-      assert(false)
+    it("should correctly parse config files"){
+      val correctConfig = Source.fromFile(getClass.getResource("/json/file/example-file.ok.config").getPath).getLines
+      val incorrectConfig = Source.fromFile(getClass.getResource("/json/file/example-file.ko.config").getPath).getLines
+      assert(DataResourceUtils.parseConfigLines(correctConfig).map(DataResourceUtils.checkConfigParams(_)).isSuccess)
+      assert(DataResourceUtils.parseConfigLines(incorrectConfig).map(DataResourceUtils.checkConfigParams(_)).isFailure)
     }
 
     it("should correctly parse mapping files"){
-      val correctMapping = Source.fromFile(getClass.getResource("/json/example.ok.map").getPath).getLines()
-      val incorrectMapping = Source.fromFile(getClass.getResource("/json/example.ko.map").getPath).getLines()
+      val correctMapping = Source.fromFile(getClass.getResource("/json/file/example-file.ok.map").getPath).getLines
+      val incorrectMapping = Source.fromFile(getClass.getResource("/json/file/example-file.ko.map").getPath).getLines
       assert(DataResourceUtils.parseMappingLines(correctMapping).isSuccess)
       assert(DataResourceUtils.parseMappingLines(incorrectMapping).isFailure)
     }
 
-    ignore("should correctly load config files"){
-      assert(false)
+    it("should correctly load config files"){
+      val config = DataResourceUtils.loadConfig(getClass.getResource("/json/file/example-file.ok.config").getPath)
+      assert(config.isSuccess)
+      assert(config.get._1 == "example-file.json")
+      assert(config.get._2 == "json")
+      assert(config.get._3 == "utf-8")
     }
 
-    ignore("should correctly load mapping files"){
-      assert(false)
+    it("should correctly load mapping files"){
+      val mapping = DataResourceUtils.loadMapping(getClass.getResource("/json/file/example-file.ok.map").getPath)
+      assert(mapping.isSuccess)
+      assert(mapping.get.get("metric1") == Some("$.foo.bar[0].foo"))
+      assert(mapping.get.get("metric2") == Some("$.bar"))
+      assert(mapping.get.get("metric3") == Some("$.baz.baz"))
     }
 
   }
