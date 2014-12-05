@@ -1,5 +1,6 @@
 import sbt._
 import Keys._
+import xerial.sbt.Pack._
 
 object BuildSettings {
   val buildSettings = Defaults.defaultSettings ++ Seq(
@@ -16,14 +17,18 @@ object MyBuild extends Build {
   lazy val dssDataImport: Project = Project(
     "dss-data-import",
     file("."),
-    settings = buildSettings ++ Seq(
+    settings = buildSettings 
+    ++ packAutoSettings
+    ++ Seq(
       libraryDependencies ++= Seq(
         "jaxen" % "jaxen" % "1.1.6",
         "dom4j" % "dom4j" % "1.6.1",
         "io.gatling" %% "jsonpath" % "0.6.1",
         "com.fasterxml.jackson.core" % "jackson-databind" % "2.4.2",
-        "org.scalatest" %% "scalatest" % "2.2.1" % "test"
-      )
+        "org.scalatest" %% "scalatest" % "2.2.1",
+        "com.github.scopt" %% "scopt" % "3.2.0"
+      ),
+      resolvers += Resolver.sonatypeRepo("public")
     )
   )
 }
