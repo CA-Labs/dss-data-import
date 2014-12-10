@@ -24,7 +24,7 @@ class XMLDataResourceSpec extends FunSpec {
         case (Success(c), Success(m)) => {
           // How to test files that are loaded from a path property read from a file? This will be different between machines!
           // Overwrite data source path by now with one existing relative to resources folder
-          val newConfig = DataResourceConfig(getClass.getResource("/xml/file/example-file.xml").getPath, c._2, c._3)
+          val newConfig = DataResourceConfig(getClass.getResource("/xml/file/example-file.xml").getPath, c._2, c._3, c._4)
           val xmlResource = XMLResource(newConfig, DataResourceMapping(m))
           val metrics = xmlResource.extractMetrics
           assert(metrics.get.get("metric1") == Some("Everyday Italian"))
