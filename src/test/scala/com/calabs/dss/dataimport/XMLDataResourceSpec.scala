@@ -49,7 +49,7 @@ class XMLDataResourceSpec extends FunSpec {
       val mapping = DataResourceUtils.loadMapping(getClass.getResource("/xml/api/example-api.ok.map").getPath)
       (config, mapping) match {
         case (Success(c), Success(m)) => {
-          val xmlResource = XMLResource(DataResourceConfig(c), DataResourceMapping(m))
+          val xmlResource = XMLAPIResource(DataResourceConfig(c), DataResourceMapping(m))
           val metrics = xmlResource.extractMetrics
           assert(metrics.get.get("name") == Some("London"))
           assert(metrics.get.get("country") == Some("GB"))

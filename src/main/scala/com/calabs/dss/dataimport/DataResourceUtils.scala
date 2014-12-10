@@ -10,6 +10,7 @@ import TypeAliases._
  * <jordi.aranda@bsc.es>
  * 3/12/14
  */
+
 object DataResourceUtils {
 
   val FIELD_SEPARATOR = "::"

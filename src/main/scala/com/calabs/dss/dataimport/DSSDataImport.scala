@@ -35,9 +35,9 @@ object DSSDataImport {
             val drm = DataResourceMapping(m)
             c._2 match {
               case JSON => JSONResource(drc, drm).extractMetrics
-              case JSON_API => JSONResource(drc, drm).extractMetrics
+              case JSON_API => JSONAPIResource(drc, drm).extractMetrics
               case XML => XMLResource(drc, drm).extractMetrics
-              case XML_API => XMLResource(drc, drm).extractMetrics
+              case XML_API => XMLAPIResource(drc, drm).extractMetrics
             }
           }
           case (Failure(c), Success(m)) => {

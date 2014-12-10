@@ -48,7 +48,7 @@ class JSONDataResourceSpec extends FunSpec {
       val mapping = DataResourceUtils.loadMapping(getClass.getResource("/json/api/example-api.ok.map").getPath)
       (config, mapping) match {
         case (Success(c), Success(m)) => {
-          val jsonResource = JSONResource(DataResourceConfig(c), DataResourceMapping(m))
+          val jsonResource = JSONAPIResource(DataResourceConfig(c), DataResourceMapping(m))
           val metrics = jsonResource.extractMetrics
           assert(metrics.get.get("login") == Some("jarandaf"))
           assert(metrics.get.get("url") == Some("https://api.github.com/users/jarandaf"))

@@ -33,8 +33,6 @@ object TypeAliases {
   type HTTPHeaders = Map[HeaderKey, HeaderValue]
 }
 
-case class DataResourceConfig(config: (DataSource, ResourceType, Codec, HTTPHeaders))
-
 object ResourceType {
   val WEBSITE = "website"
   val JSON = "json"
@@ -43,6 +41,7 @@ object ResourceType {
   val XML_API = "xmlAPI"
 }
 
+case class DataResourceConfig(config: (DataSource, ResourceType, Codec, HTTPHeaders))
 case class DataResourceMapping(mapping: Map[Metric, MetricPath])
 
 sealed trait DataResource {
@@ -54,7 +53,7 @@ trait DataResourceExtractor {
   def extractMetrics: Try[Map[Metric, MetricValue]]
 }
 
-trait APIResource {
+trait APIConnection {
   def prepareConnection(dataSource: DataSource, headers: HTTPHeaders): BufferedSource = {
     val connection = new URL(dataSource).openConnection()
     headers.foreach{ case (k,v) => connection.setRequestProperty(k,v.toString)}
@@ -62,30 +61,29 @@ trait APIResource {
   }
 }
 
-case class JSONResource(config: DataResourceConfig, mapping: DataResourceMapping) extends DataResource with DataResourceExtractor with APIResource {
+trait JSONResourceBase extends DataResource with DataResourceExtractor {
+  lazy val mapper = new ObjectMapper
+  def parseJson(s: String) = mapper.readValue(s, classOf[Object])
+}
+
+trait XMLResourceBase extends DataResource with DataResourceExtractor
+
+case class JSONResource(config: DataResourceConfig, mapping: DataResourceMapping) extends JSONResourceBase {
 
   override def extractMetrics: Try[Map[Metric, MetricValue]] = {
-
     val c = config.config
-
     // Potential result
     val mutableMap = MutableMap[Metric, MetricValue]()
-
     Try(c match {
-
       case (dataSource, resourceType, codec, headers) => {
-
         val m = mapping.mapping
-
         // Load the JSON resource
         val jsonFile = resourceType match {
           case ResourceType.JSON => Source.fromFile(dataSource, codec)
-          case ResourceType.JSON_API => prepareConnection(dataSource, headers)
-          case _ => throw new IllegalArgumentException(s"Wrong resource type, must be either ${ResourceType.JSON} or ${ResourceType.JSON_API} for JSON data resources.")
+          case _ => throw new IllegalArgumentException(s"Wrong resource type, must be ${ResourceType.JSON} for JSON data resources.")
         }
         val jsonInput = jsonFile.mkString
-        val json = JSONResource.parseJson(jsonInput)
-
+        val json = parseJson(jsonInput)
         m.foreach {
           case (metric, key) => {
             val metricRawValue = JsonPath.query(key, json)
@@ -96,57 +94,94 @@ case class JSONResource(config: DataResourceConfig, mapping: DataResourceMapping
             mutableMap.update(metric, metricValue)
           }
         }
-
         mutableMap.toMap
-
       }
-
     })
-
   }
 
 }
 
-object JSONResource {
-  lazy val mapper = new ObjectMapper
-  def parseJson(s: String) = mapper.readValue(s, classOf[Object])
-}
-
-case class XMLResource(config: DataResourceConfig, mapping: DataResourceMapping) extends DataResource with DataResourceExtractor with APIResource {
-
+case class JSONAPIResource(config: DataResourceConfig, mapping: DataResourceMapping) extends JSONResourceBase with APIConnection {
   override def extractMetrics: Try[Map[Metric, MetricValue]] = {
-
     val c = config.config
-
     // Potential result
     val mutableMap = MutableMap[Metric, MetricValue]()
-
     Try(c match {
-
       case (dataSource, resourceType, codec, headers) => {
-
         val m = mapping.mapping
+        // Load the JSON resource
+        val jsonFile = resourceType match {
+          case ResourceType.JSON_API => prepareConnection(dataSource, headers)
+          case _ => throw new IllegalArgumentException(s"Wrong resource type, must be ${ResourceType.JSON_API} for JSON API data resources.")
+        }
+        val jsonInput = jsonFile.mkString
+        val json = parseJson(jsonInput)
+        m.foreach {
+          case (metric, key) => {
+            val metricRawValue = JsonPath.query(key, json)
+            val metricValue = metricRawValue match {
+              case Left(error) => throw new IllegalArgumentException(s"Some error occurred when looking up metric $metric: ${error.reason}.")
+              case Right(value) => value.next()
+            }
+            mutableMap.update(metric, metricValue)
+          }
+        }
+        mutableMap.toMap
+      }
+    })
+  }
+}
 
+case class XMLResource(config: DataResourceConfig, mapping: DataResourceMapping) extends XMLResourceBase {
+
+  override def extractMetrics: Try[Map[Metric, MetricValue]] = {
+    val c = config.config
+    // Potential result
+    val mutableMap = MutableMap[Metric, MetricValue]()
+    Try(c match {
+      case (dataSource, resourceType, codec, headers) => {
+        val m = mapping.mapping
         // Load the XML resource
         val xmlFile = resourceType match {
           case ResourceType.XML => Source.fromFile(dataSource, codec)
-          case ResourceType.XML_API => prepareConnection(dataSource, headers)
-          case _ => throw new IllegalArgumentException(s"Wrong resource type, must be either ${ResourceType.XML} or ${ResourceType.XML_API} for XML data resources.")
+          case _ => throw new IllegalArgumentException(s"Wrong resource type, must be ${ResourceType.XML} for XML data resources.")
         }
         val xmlInput = xmlFile.mkString
         val xml = DocumentHelper.parseText(xmlInput)
-
         m.foreach{case (metric, key) =>
           val metricRawValue = xml.selectObject(key)
           mutableMap.update(metric, metricRawValue)
         }
-
         mutableMap.toMap
-
       }
-
     })
+  }
 
+}
+
+case class XMLAPIResource(config: DataResourceConfig, mapping: DataResourceMapping) extends XMLResourceBase with APIConnection {
+
+  override def extractMetrics: Try[Map[Metric, MetricValue]] = {
+    val c = config.config
+    // Potential result
+    val mutableMap = MutableMap[Metric, MetricValue]()
+    Try(c match {
+      case (dataSource, resourceType, codec, headers) => {
+        val m = mapping.mapping
+        // Load the XML resource
+        val xmlFile = resourceType match {
+          case ResourceType.XML_API => prepareConnection(dataSource, headers)
+          case _ => throw new IllegalArgumentException(s"Wrong resource type, must be ${ResourceType.XML_API} for XML data resources.")
+        }
+        val xmlInput = xmlFile.mkString
+        val xml = DocumentHelper.parseText(xmlInput)
+        m.foreach{case (metric, key) =>
+          val metricRawValue = xml.selectObject(key)
+          mutableMap.update(metric, metricRawValue)
+        }
+        mutableMap.toMap
+      }
+    })
   }
 
 }
