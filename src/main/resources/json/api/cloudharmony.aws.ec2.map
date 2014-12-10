@@ -1,2 +1,9 @@
 serviceName::$[0].computeServiceId
-ipv4price::$[0].ipv4Price
+currency::$[0].currency
+firewall::$[0].firewall
+resizing::$[0].resizing
+loadBalancing::$[0].loadBalancing
+loadBalancingHealthChecks::$[0].loadBalancingHealthChecks
+multiIp::$[0].multiIp
+snapshotsHot::$[0].snapshotsHot
+snapshotsCold::$[0].snapshotsCold
