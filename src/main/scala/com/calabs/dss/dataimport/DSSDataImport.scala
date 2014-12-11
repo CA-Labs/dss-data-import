@@ -3,6 +3,8 @@ package com.calabs.dss.dataimport
 import scopt.OptionParser
 
 import scala.util.{Failure, Try, Success}
+import Config._
+import Mapping._
 
 /**
  * Created by Jordi Aranda
@@ -12,11 +14,13 @@ import scala.util.{Failure, Try, Success}
 
 object DSSDataImport {
 
-  case class Config(config: String, mapping: String, out: String)
+  case class Config(resourceType: String, config: String, mapping: String, out: String)
 
   def main(args: Array[String]) : Unit = {
     val parser = new OptionParser[Config]("dss-data-import") {
       head("DSS Data Import tool", "0.0.1")
+      opt[String]('t', "resource-type") required() action { (x, c) =>
+        c.copy(resourceType = x)} text("Resource type (value between json, jsonAPI, xml, xmlAPI)")
       opt[String]('c', "config") required() action { (x, c) =>
         c.copy(config = x)} text("Absolute path to configuration file")
       opt[String]('m', "mapping") required() action { (x,c) =>
@@ -24,16 +28,23 @@ object DSSDataImport {
       opt[String]('o', "out") action { (x,c) =>
         c.copy(out = x)} text("Absolute path to output file")
     }
-    parser.parse(args, Config("config", "mapping", "output")) map {
+    parser.parse(args, Config("resource-type", "config", "mapping", "output")) map {
+
       import ResourceType._
+
       config => {
-        val dssConfig = DataResourceUtils.loadConfig(config.config)
-        val dssMapping = DataResourceUtils.loadMapping(config.mapping)
+        val (dssConfig, dssMapping) = config.resourceType match {
+          case ResourceType.JSON => (jsonResourceConfig.load(config.config), jsonResourceMapping.load(config.mapping))
+          case ResourceType.JSON_API => (jsonApiResourceConfig.load(config.config), jsonApiResourceMapping.load(config.mapping))
+          case ResourceType.XML => (xmlResourceConfig.load(config.config), xmlResourceMapping.load(config.mapping))
+          case ResourceType.XML_API => (xmlApiResourceConfig.load(config.config), xmlApiResourceMapping.load(config.mapping))
+        }
+
         val result = (dssConfig, dssMapping) match {
           case (Success(c), Success(m)) => {
             val drc = DataResourceConfig(c)
             val drm = DataResourceMapping(m)
-            c._2 match {
+            c.productElement(1) match {
               case JSON => JSONResource(drc, drm).extractMetrics
               case JSON_API => JSONAPIResource(drc, drm).extractMetrics
               case XML => XMLResource(drc, drm).extractMetrics

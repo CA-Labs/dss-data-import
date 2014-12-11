@@ -1,15 +1,15 @@
 package com.calabs.dss.dataimport
 
+import java.io.File
 import java.net.URL
-import javax.xml.xpath.XPathConstants
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.gatling.jsonpath.JsonPath
-import org.dom4j.{Node, DocumentHelper}
+import org.apache.poi.ss.usermodel.WorkbookFactory
+import org.dom4j.{DocumentHelper}
 
 import scala.io.{BufferedSource, Source}
-import scala.util.{Failure, Success, Try}
-import util.parsing.json.{JSON}
+import scala.util.{Try}
 import scala.collection.mutable.{Map => MutableMap}
 import TypeAliases._
 
@@ -39,9 +39,10 @@ object ResourceType {
   val JSON_API = "jsonAPI"
   val XML = "xml"
   val XML_API = "xmlAPI"
+  val FILE = "file"
 }
 
-case class DataResourceConfig(config: (DataSource, ResourceType, Codec, HTTPHeaders))
+case class DataResourceConfig(config: Product)
 case class DataResourceMapping(mapping: Map[Metric, MetricPath])
 
 sealed trait DataResource {
@@ -68,6 +69,8 @@ trait JSONResourceBase extends DataResource with DataResourceExtractor {
 
 trait XMLResourceBase extends DataResource with DataResourceExtractor
 
+trait ExcelResourceBase extends DataResource with DataResourceExtractor
+
 case class JSONResource(config: DataResourceConfig, mapping: DataResourceMapping) extends JSONResourceBase {
 
   override def extractMetrics: Try[Map[Metric, MetricValue]] = {
@@ -75,11 +78,11 @@ case class JSONResource(config: DataResourceConfig, mapping: DataResourceMapping
     // Potential result
     val mutableMap = MutableMap[Metric, MetricValue]()
     Try(c match {
-      case (dataSource, resourceType, codec, headers) => {
+      case (dataSource: DataSource, resourceType: ResourceType) => {
         val m = mapping.mapping
         // Load the JSON resource
         val jsonFile = resourceType match {
-          case ResourceType.JSON => Source.fromFile(dataSource, codec)
+          case ResourceType.JSON => Source.fromFile(dataSource, "utf-8")
           case _ => throw new IllegalArgumentException(s"Wrong resource type, must be ${ResourceType.JSON} for JSON data resources.")
         }
         val jsonInput = jsonFile.mkString
@@ -96,18 +99,20 @@ case class JSONResource(config: DataResourceConfig, mapping: DataResourceMapping
         }
         mutableMap.toMap
       }
+      case _ => throw new IllegalArgumentException(s"Wrong number of parameters expected in JSON resource configuration file.")
     })
   }
 
 }
 
 case class JSONAPIResource(config: DataResourceConfig, mapping: DataResourceMapping) extends JSONResourceBase with APIConnection {
+
   override def extractMetrics: Try[Map[Metric, MetricValue]] = {
     val c = config.config
     // Potential result
     val mutableMap = MutableMap[Metric, MetricValue]()
     Try(c match {
-      case (dataSource, resourceType, codec, headers) => {
+      case (dataSource: DataSource, resourceType: ResourceType, headers: HTTPHeaders) => {
         val m = mapping.mapping
         // Load the JSON resource
         val jsonFile = resourceType match {
@@ -128,8 +133,10 @@ case class JSONAPIResource(config: DataResourceConfig, mapping: DataResourceMapp
         }
         mutableMap.toMap
       }
+      case _ => throw new IllegalArgumentException(s"Wrong number of parameters expected in JSON API resource configuration file.")
     })
   }
+
 }
 
 case class XMLResource(config: DataResourceConfig, mapping: DataResourceMapping) extends XMLResourceBase {
@@ -139,11 +146,11 @@ case class XMLResource(config: DataResourceConfig, mapping: DataResourceMapping)
     // Potential result
     val mutableMap = MutableMap[Metric, MetricValue]()
     Try(c match {
-      case (dataSource, resourceType, codec, headers) => {
+      case (dataSource: DataSource, resourceType: ResourceType) => {
         val m = mapping.mapping
         // Load the XML resource
         val xmlFile = resourceType match {
-          case ResourceType.XML => Source.fromFile(dataSource, codec)
+          case ResourceType.XML => Source.fromFile(dataSource, "utf-8")
           case _ => throw new IllegalArgumentException(s"Wrong resource type, must be ${ResourceType.XML} for XML data resources.")
         }
         val xmlInput = xmlFile.mkString
@@ -154,6 +161,7 @@ case class XMLResource(config: DataResourceConfig, mapping: DataResourceMapping)
         }
         mutableMap.toMap
       }
+      case _ => throw new IllegalArgumentException(s"Wrong number of parameters expected in XML resource configuration file.")
     })
   }
 
@@ -166,7 +174,7 @@ case class XMLAPIResource(config: DataResourceConfig, mapping: DataResourceMappi
     // Potential result
     val mutableMap = MutableMap[Metric, MetricValue]()
     Try(c match {
-      case (dataSource, resourceType, codec, headers) => {
+      case (dataSource: DataSource, resourceType: ResourceType, headers: HTTPHeaders) => {
         val m = mapping.mapping
         // Load the XML resource
         val xmlFile = resourceType match {
@@ -181,6 +189,7 @@ case class XMLAPIResource(config: DataResourceConfig, mapping: DataResourceMappi
         }
         mutableMap.toMap
       }
+      case _ => throw new IllegalArgumentException(s"Wrong number of parameters expected in XML API resource configuration file")
     })
   }
 

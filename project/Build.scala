@@ -26,7 +26,9 @@ object MyBuild extends Build {
         "io.gatling" %% "jsonpath" % "0.6.1",
         "com.fasterxml.jackson.core" % "jackson-databind" % "2.4.2",
         "org.scalatest" %% "scalatest" % "2.2.1",
-        "com.github.scopt" %% "scopt" % "3.2.0"
+        "com.github.scopt" %% "scopt" % "3.2.0",
+        "org.apache.poi" % "poi" % "3.10.1",
+        "org.apache.poi" % "poi-ooxml" % "3.10.1"
       ),
       resolvers += Resolver.sonatypeRepo("public")
     )
