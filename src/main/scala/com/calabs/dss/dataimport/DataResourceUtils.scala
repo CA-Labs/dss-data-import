@@ -64,6 +64,15 @@ object Mapping {
     }
   }
 
+  implicit val xlsxResourceMapping : Mapping[XLSXResource] = new Mapping[XLSXResource] {
+    // XLSX resource mapping load
+    override def load(path: String): Try[Map[Metric, MetricPath]] = {
+      val sourceFile = Source.fromFile(path)
+      val sourceContent = sourceFile.getLines()
+      Try(parseMappingLines(sourceContent))
+    }
+  }
+
 }
 
 trait Config[A] {
@@ -205,6 +214,34 @@ object Config {
       }
       (source, resourceType, headers)
     }
+  }
+
+  implicit val xlsxResourceConfig : Config[XLSXResource] = new Config[XLSXResource]{
+
+    override def load(path: String): Try[Product] = {
+      // XLSX resource load
+      val sourceFile = Source.fromFile(path)
+      val sourceContent = sourceFile.getLines()
+      Try(check(parseConfigLines(sourceContent)))
+    }
+
+    override def check(config: Map[ConfigKey, ConfigValue]): Product = {
+      // XLSX resource config check (mandatory properties are: source, resourceType and sheet)
+      val source = config.get("source") match {
+        case Some(source) => source.toString
+        case None => throw new NoSuchElementException("Missing source parameter in resource config file.")
+      }
+      val resourceType = config.get("resourceType") match {
+        case Some(resourceType) => resourceType.toString
+        case None => throw new NoSuchElementException("Missing resource type parameter in resource config file.")
+      }
+      val sheet = config.get("sheet") match {
+        case Some(sheet) => sheet.toString
+        case None => throw new NoSuchElementException("Missing sheet parameter in resource config file.")
+      }
+      (source, resourceType, sheet)
+    }
+
   }
 
 }

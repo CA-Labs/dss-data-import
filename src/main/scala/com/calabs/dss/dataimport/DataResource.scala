@@ -5,7 +5,7 @@ import java.net.URL
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.gatling.jsonpath.JsonPath
-import org.apache.poi.ss.usermodel.WorkbookFactory
+import org.apache.poi.ss.usermodel.{Cell, Sheet, WorkbookFactory}
 import org.dom4j.{DocumentHelper}
 
 import scala.io.{BufferedSource, Source}
@@ -31,6 +31,7 @@ object TypeAliases {
   type HeaderKey = String
   type HeaderValue = Any
   type HTTPHeaders = Map[HeaderKey, HeaderValue]
+  type XLSXSheet = String
 }
 
 object ResourceType {
@@ -39,7 +40,7 @@ object ResourceType {
   val JSON_API = "jsonAPI"
   val XML = "xml"
   val XML_API = "xmlAPI"
-  val FILE = "file"
+  val XLSX = "xlsx"
 }
 
 case class DataResourceConfig(config: Product)
@@ -69,7 +70,9 @@ trait JSONResourceBase extends DataResource with DataResourceExtractor {
 
 trait XMLResourceBase extends DataResource with DataResourceExtractor
 
-trait ExcelResourceBase extends DataResource with DataResourceExtractor
+trait XLSXResourceBase extends DataResource with DataResourceExtractor {
+  def openSheet(path: String, sheet: XLSXSheet) : Sheet = WorkbookFactory.create(new File(path)).getSheet(sheet)
+}
 
 case class JSONResource(config: DataResourceConfig, mapping: DataResourceMapping) extends JSONResourceBase {
 
@@ -189,8 +192,42 @@ case class XMLAPIResource(config: DataResourceConfig, mapping: DataResourceMappi
         }
         mutableMap.toMap
       }
-      case _ => throw new IllegalArgumentException(s"Wrong number of parameters expected in XML API resource configuration file")
+      case _ => throw new IllegalArgumentException(s"Wrong number of parameters expected in XML API resource configuration file.")
     })
   }
 
+}
+
+case class XLSXResource(config: DataResourceConfig, mapping: DataResourceMapping) extends XLSXResourceBase {
+  override def extractMetrics: Try[Map[Metric, MetricValue]] = {
+    val c = config.config
+    // Potential result
+    val mutableMap = MutableMap[Metric, MetricValue]()
+    Try(c match {
+      case (dataSource: DataSource, resourceType: ResourceType, sheet: XLSXSheet) => {
+        val m = mapping.mapping
+        val s = resourceType match {
+          case ResourceType.XLSX => openSheet(dataSource, sheet)
+          case _ => throw new IllegalArgumentException(s"Wrong resource type, must be ${ResourceType.XLSX} for XLSX data resources.")
+        }
+        m.foreach{case (metric, rowColumn) => {
+          val metricRawValue = rowColumn.split(",")
+          if (metricRawValue.length != 2) throw new IllegalArgumentException(s"Wrong metric path for metric $metric ($rowColumn): value must be two numbers (separated by comma) indicating row/cell position respectively.")
+          else {
+            val (row, column) = (metricRawValue.head.toInt, metricRawValue.tail.head.toInt)
+            val cell = s.getRow(row).getCell(column)
+            val cellValue = cell.getCellType match {
+              case Cell.CELL_TYPE_BOOLEAN => cell.getBooleanCellValue
+              case Cell.CELL_TYPE_NUMERIC => cell.getNumericCellValue
+              case Cell.CELL_TYPE_STRING => cell.getStringCellValue
+              case _ => throw new IllegalArgumentException(s"Cell located in sheet ${s.getSheetName} ($row,$column) is empty or contains an invalid value.")
+            }
+            mutableMap.update(metric, cellValue)
+          }
+        }}
+        mutableMap.toMap
+      }
+      case _ => throw new IllegalArgumentException(s"Wrong number of parameters expected in XLSX resource configuration file.")
+    })
+  }
 }

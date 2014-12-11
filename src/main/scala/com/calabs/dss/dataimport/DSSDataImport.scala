@@ -20,7 +20,7 @@ object DSSDataImport {
     val parser = new OptionParser[Config]("dss-data-import") {
       head("DSS Data Import tool", "0.0.1")
       opt[String]('t', "resource-type") required() action { (x, c) =>
-        c.copy(resourceType = x)} text("Resource type (value between json, jsonAPI, xml, xmlAPI)")
+        c.copy(resourceType = x)} text("Resource type (value between json, jsonAPI, xml, xmlAPI, xlsx)")
       opt[String]('c', "config") required() action { (x, c) =>
         c.copy(config = x)} text("Absolute path to configuration file")
       opt[String]('m', "mapping") required() action { (x,c) =>
@@ -38,6 +38,7 @@ object DSSDataImport {
           case ResourceType.JSON_API => (jsonApiResourceConfig.load(config.config), jsonApiResourceMapping.load(config.mapping))
           case ResourceType.XML => (xmlResourceConfig.load(config.config), xmlResourceMapping.load(config.mapping))
           case ResourceType.XML_API => (xmlApiResourceConfig.load(config.config), xmlApiResourceMapping.load(config.mapping))
+          case ResourceType.XLSX => (xlsxResourceConfig.load(config.config), xlsxResourceMapping.load(config.mapping))
         }
 
         val result = (dssConfig, dssMapping) match {
@@ -49,6 +50,7 @@ object DSSDataImport {
               case JSON_API => JSONAPIResource(drc, drm).extractMetrics
               case XML => XMLResource(drc, drm).extractMetrics
               case XML_API => XMLAPIResource(drc, drm).extractMetrics
+              case XLSX => XLSXResource(drc, drm).extractMetrics
             }
           }
           case (Failure(c), Success(m)) => {

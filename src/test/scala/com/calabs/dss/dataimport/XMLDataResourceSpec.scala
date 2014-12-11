@@ -42,7 +42,7 @@ class XMLDataResourceSpec extends FunSpec {
           fail(s"Some error occurred while trying to load the XML resource mapping file: ${m.getMessage}.")
         }
         case _ => {
-          fail("Neither the JSON resource config file nor the mapping file could be loaded.")
+          fail("Neither the XML resource config file nor the mapping file could be loaded.")
         }
       }
     }
@@ -64,7 +64,7 @@ class XMLDataResourceSpec extends FunSpec {
           fail(s"Some error occurred while trying to load the XML resource mapping file: ${m.getMessage}.")
         }
         case _ => {
-          fail("Neither the JSON resource config file nor the mapping file could be loaded.")
+          fail("Neither the XML resource config file nor the mapping file could be loaded.")
         }
       }
     }

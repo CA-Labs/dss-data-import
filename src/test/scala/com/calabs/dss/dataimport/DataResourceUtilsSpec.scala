@@ -177,6 +177,48 @@ class DataResourceUtilsSpec extends FunSpec {
       }
     }
 
+    /*********************************************************************************
+      ************************************** XLSX ************************************
+      ********************************************************************************/
+
+    it("should correctly parse and load XLSX resource config files"){
+      val correctConfig = Source.fromFile(getClass.getResource("/xlsx/example-xlsx.ok.config").getPath).getLines
+      val incorrectConfig = Source.fromFile(getClass.getResource("/xlsx/example-xlsx.ko.config").getPath).getLines
+      try {
+        xlsxResourceConfig.check(parseConfigLines(correctConfig))
+        val config = xlsxResourceConfig.load(getClass.getResource("/xlsx/example-xlsx.ok.config").getPath)
+        assert(config.isSuccess)
+        config.get match {
+          case (source: DataSource, resourceType: ResourceType, sheet: XLSXSheet) => {
+            assert(source == "example.xlsx")
+            assert(resourceType == ResourceType.XLSX)
+            assert(sheet == "test")
+          }
+        }
+      } catch {
+        case e: Throwable => fail(e.getMessage)
+      }
+      intercept[IllegalArgumentException] {
+        xlsxResourceConfig.check(parseConfigLines(incorrectConfig))
+      }
+    }
+
+    it("should correctly parse and load XLSX resource mapping files"){
+      val correctMapping = Source.fromFile(getClass.getResource("/xlsx/example-xlsx.ok.map").getPath).getLines
+      val incorrectMapping = Source.fromFile(getClass.getResource("/xlsx/example-xlsx.ko.map").getPath).getLines
+      try {
+        val metrics = parseMappingLines(correctMapping)
+        assert(metrics.get("metric1") == Some("0,1"))
+        assert(metrics.get("metric2") == Some("1,1"))
+        assert(metrics.get("metric3") == Some("2,1"))
+      } catch {
+        case e: IllegalArgumentException => fail(e.getMessage)
+      }
+      intercept[IllegalArgumentException] {
+        parseMappingLines(incorrectMapping)
+      }
+    }
+
   }
 
 }
