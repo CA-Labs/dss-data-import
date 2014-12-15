@@ -71,6 +71,10 @@ trait JSONResourceBase extends DataResource with DataResourceExtractor {
 trait XMLResourceBase extends DataResource with DataResourceExtractor
 
 trait XLSXResourceBase extends DataResource with DataResourceExtractor {
+
+  val truthyValues = List("X", "x", "Y", "y", "yes")
+  val falsyValues = List("N", "n", "no")
+
   def openSheet(path: String, sheet: XLSXSheet) : Sheet = WorkbookFactory.create(new File(path)).getSheet(sheet)
 }
 
@@ -219,7 +223,12 @@ case class XLSXResource(config: DataResourceConfig, mapping: DataResourceMapping
             val cellValue = cell.getCellType match {
               case Cell.CELL_TYPE_BOOLEAN => cell.getBooleanCellValue
               case Cell.CELL_TYPE_NUMERIC => cell.getNumericCellValue
-              case Cell.CELL_TYPE_STRING => cell.getStringCellValue
+              case Cell.CELL_TYPE_STRING => {
+                val cellValue = cell.getStringCellValue
+                if (truthyValues.contains(cellValue)) true
+                else if (falsyValues.contains(cellValue)) false
+                else cellValue
+              }
               case _ => throw new IllegalArgumentException(s"Cell located in sheet ${s.getSheetName} ($row,$column) is empty or contains an invalid value.")
             }
             mutableMap.update(metric, cellValue)

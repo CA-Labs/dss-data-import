@@ -29,8 +29,8 @@ class XLSXDataResourceSpec extends FunSpec {
           val xlsxResource = XLSXResource(newConfig, DataResourceMapping(m))
           val metrics = xlsxResource.extractMetrics
           assert(metrics.get.get("metric1") == Some(1))
-          assert(metrics.get.get("metric2") == Some(2))
-          assert(metrics.get.get("metric3") == Some(3))
+          assert(metrics.get.get("metric2") == Some(true))
+          assert(metrics.get.get("metric3") == Some(false))
         }
         case (Failure(c), Success(m)) => {
           fail(s"Some error occurred while trying to load the XLSX resource config file: ${c.getMessage}.")
