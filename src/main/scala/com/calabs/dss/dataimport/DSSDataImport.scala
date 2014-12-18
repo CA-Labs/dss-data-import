@@ -64,8 +64,8 @@ object DSSDataImport {
           }
         }
         result match {
-          case Success(r) => println("OK => " + result.toString)
-          case Failure(e) => println("KO => " + e.getMessage)
+          case Success(r) => r.keys.foreach(key => println(s"$key,${r.get(key).get}"))
+          case Failure(e) => println(s"KO => ${e.getMessage}")
         }
       }
     } getOrElse {
