@@ -1,5 +1,5 @@
 serviceName::$[0].computeServiceId
-comment:$[0].comment
+comment::$[0].comment
 currency::$[0].currency
 firewall::$[0].firewall
 resizing::$[0].resizing
