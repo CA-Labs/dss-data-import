@@ -45,14 +45,16 @@ object ResourceType {
 
 case class DataResourceConfig(config: Product)
 case class DataResourceMapping(mapping: Map[Metric, MetricPath])
-
-sealed trait DataResource {
-  def config: DataResourceConfig
-  def mapping: DataResourceMapping
-}
+case class GraphStorageConfig(config: Product)
 
 trait DataResourceExtractor {
   def extractMetrics: Try[Map[Metric, MetricValue]]
+}
+
+sealed trait DataResource {
+  self: DataResourceExtractor =>
+  def config: DataResourceConfig
+  def mapping: DataResourceMapping
 }
 
 trait APIConnection {
@@ -71,7 +73,6 @@ trait JSONResourceBase extends DataResource with DataResourceExtractor {
 trait XMLResourceBase extends DataResource with DataResourceExtractor
 
 trait XLSXResourceBase extends DataResource with DataResourceExtractor {
-
   val truthyValues = List("X", "x", "Y", "y", "yes")
   val falsyValues = List("N", "n", "no")
 
