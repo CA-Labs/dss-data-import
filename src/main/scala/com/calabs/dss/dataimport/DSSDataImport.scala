@@ -1,10 +1,13 @@
 package com.calabs.dss.dataimport
 
+import org.json4s.jackson.Serialization
 import scopt.OptionParser
 
 import scala.util.{Failure, Try, Success}
 import Config._
 import Mapping._
+
+import org.json4s._
 
 /**
  * Created by Jordi Aranda
@@ -16,6 +19,15 @@ object DSSDataImport {
 
   case class Config(resourceType: String, config: String, mapping: String, out: String)
 
+  def outputToJSON(result: Try[Map[String, Any]]) : String = {
+    // Used for JSON serialization
+    implicit val formats = DefaultFormats
+    result match {
+      case Success(r) => Serialization.write(r)
+      case Failure(e) => Serialization.write(List(("exception" -> true), ("reason", e.getMessage)).toMap)
+    }
+  }
+
   def main(args: Array[String]) : Unit = {
     val parser = new OptionParser[Config]("dss-data-import") {
       head("DSS Data Import tool", "0.0.1")
@@ -25,8 +37,6 @@ object DSSDataImport {
         c.copy(config = x)} text("Absolute path to configuration file")
       opt[String]('m', "mapping") required() action { (x,c) =>
         c.copy(mapping = x)} text("Absolute path to mapping file")
-      opt[String]('o', "out") action { (x,c) =>
-        c.copy(out = x)} text("Absolute path to output file")
     }
     parser.parse(args, Config("resource-type", "config", "mapping", "output")) map {
 
@@ -41,35 +51,36 @@ object DSSDataImport {
           case ResourceType.XLSX => (xlsxResourceConfig.load(config.config), xlsxResourceMapping.load(config.mapping))
         }
 
-        val result = (dssConfig, dssMapping) match {
-          case (Success(c), Success(m)) => {
-            val drc = DataResourceConfig(c)
-            val drm = DataResourceMapping(m)
-            c.productElement(1) match {
-              case JSON => JSONResource(drc, drm).extractMetrics
-              case JSON_API => JSONAPIResource(drc, drm).extractMetrics
-              case XML => XMLResource(drc, drm).extractMetrics
-              case XML_API => XMLAPIResource(drc, drm).extractMetrics
-              case XLSX => XLSXResource(drc, drm).extractMetrics
+        val result = Try(
+          (dssConfig, dssMapping) match {
+            case (Success(c), Success(m)) => {
+              val drc = DataResourceConfig(c)
+              val drm = DataResourceMapping(m)
+              c.productElement(1) match {
+                case JSON => JSONResource(drc, drm).extractMetrics.get
+                case JSON_API => JSONAPIResource(drc, drm).extractMetrics.get
+                case XML => XMLResource(drc, drm).extractMetrics.get
+                case XML_API => XMLAPIResource(drc, drm).extractMetrics.get
+                case XLSX => XLSXResource(drc, drm).extractMetrics.get
+              }
+            }
+            case (Failure(c), Success(m)) => {
+              throw new IllegalArgumentException(s"Some error occurred while trying to load the resource config file: ${c.getMessage}.")
+            }
+            case (Success(c), Failure(m)) => {
+              throw new IllegalArgumentException(s"Some error occurred while trying to load the resource mapping file: ${m.getMessage}.")
+            }
+            case _ => {
+              throw new IllegalArgumentException("Neither the resource config file nor the mapping file could be loaded.")
             }
           }
-          case (Failure(c), Success(m)) => {
-            throw new IllegalArgumentException(s"Some error occurred while trying to load the resource config file: ${c.getMessage}.")
-          }
-          case (Success(c), Failure(m)) => {
-            throw new IllegalArgumentException(s"Some error occurred while trying to load the resource mapping file: ${m.getMessage}.")
-          }
-          case _ => {
-            throw new IllegalArgumentException("Neither the resource config file nor the mapping file could be loaded.")
-          }
-        }
-        result match {
-          case Success(r) => r.keys.foreach(key => println(s"$key,${r.get(key).get}"))
-          case Failure(e) => println(s"KO => ${e.getMessage}")
-        }
+        )
+
+        println(outputToJSON(result))
+
       }
     } getOrElse {
-      println("Missing options: config, mapping and output options are required.")
+      println("Missing options: config and mapping options are required.")
     }
   }
 

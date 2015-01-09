@@ -7,7 +7,7 @@ object BuildSettings {
     name := "dss-data-import",
     organization := "com.calabs",
     version := "0.0.1-SNAPSHOT",
-    scalaVersion := "2.10.3"
+    scalaVersion := "2.10.4"
   )
 }
 
@@ -28,7 +28,8 @@ object MyBuild extends Build {
         "org.scalatest" %% "scalatest" % "2.2.1",
         "com.github.scopt" %% "scopt" % "3.2.0",
         "org.apache.poi" % "poi" % "3.10.1",
-        "org.apache.poi" % "poi-ooxml" % "3.10.1"
+        "org.apache.poi" % "poi-ooxml" % "3.10.1",
+        "org.json4s" %% "json4s-jackson" % "3.2.10"
       ),
       resolvers += Resolver.sonatypeRepo("public")
     )
