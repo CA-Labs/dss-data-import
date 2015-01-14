@@ -29,7 +29,7 @@ object MyBuild extends Build {
         "com.github.scopt" %% "scopt" % "3.2.0",
         "org.apache.poi" % "poi" % "3.10.1",
         "org.apache.poi" % "poi-ooxml" % "3.10.1",
-        "org.json4s" %% "json4s-jackson" % "3.2.10"
+        "org.json4s" %% "json4s-jackson" % "3.2.11"
       ),
       resolvers += Resolver.sonatypeRepo("public")
     )

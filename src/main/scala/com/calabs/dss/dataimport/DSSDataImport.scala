@@ -5,7 +5,6 @@ import scopt.OptionParser
 
 import scala.util.{Failure, Try, Success}
 import Config._
-import Mapping._
 
 import org.json4s._
 
@@ -17,14 +16,14 @@ import org.json4s._
 
 object DSSDataImport {
 
-  case class Config(resourceType: String, config: String, mapping: String, out: String)
+  case class Config(resourceType: String, config: String, mapping: String)
 
-  def outputToJSON(result: Try[Map[String, Any]]) : String = {
+  def outputToJSON(result: Try[(List[Document], List[Document])]) : String = {
     // Used for JSON serialization
     implicit val formats = DefaultFormats
     result match {
-      case Success(r) => Serialization.write(r)
-      case Failure(e) => Serialization.write(List(("exception" -> true), ("reason", e.getMessage)).toMap)
+      case Success(r) => Serialization.write(List(("vertices" -> r._1), ("edges" -> r._2)).toMap)
+      case Failure(e) => Serialization.write(List(("exception" -> true), ("reason" -> e.getMessage)).toMap)
     }
   }
 
@@ -38,17 +37,19 @@ object DSSDataImport {
       opt[String]('m', "mapping") required() action { (x,c) =>
         c.copy(mapping = x)} text("Absolute path to mapping file")
     }
-    parser.parse(args, Config("resource-type", "config", "mapping", "output")) map {
+    parser.parse(args, Config("resource-type", "config", "mapping")) map {
 
       import ResourceType._
 
+      val resourceMapper = DataResourceMapper()
+
       config => {
         val (dssConfig, dssMapping) = config.resourceType match {
-          case ResourceType.JSON => (jsonResourceConfig.load(config.config), jsonResourceMapping.load(config.mapping))
-          case ResourceType.JSON_API => (jsonApiResourceConfig.load(config.config), jsonApiResourceMapping.load(config.mapping))
-          case ResourceType.XML => (xmlResourceConfig.load(config.config), xmlResourceMapping.load(config.mapping))
-          case ResourceType.XML_API => (xmlApiResourceConfig.load(config.config), xmlApiResourceMapping.load(config.mapping))
-          case ResourceType.XLSX => (xlsxResourceConfig.load(config.config), xlsxResourceMapping.load(config.mapping))
+          case ResourceType.JSON => (jsonResourceConfig.load(config.config), resourceMapper.load(config.mapping))
+          case ResourceType.JSON_API => (jsonApiResourceConfig.load(config.config), resourceMapper.load(config.mapping))
+          case ResourceType.XML => (xmlResourceConfig.load(config.config), resourceMapper.load(config.mapping))
+          case ResourceType.XML_API => (xmlApiResourceConfig.load(config.config), resourceMapper.load(config.mapping))
+//          case ResourceType.XLSX => (xlsxResourceConfig.load(config.config), resourceMapper.load(config.mapping))
         }
 
         val result = Try(
@@ -57,11 +58,11 @@ object DSSDataImport {
               val drc = DataResourceConfig(c)
               val drm = DataResourceMapping(m)
               c.productElement(1) match {
-                case JSON => JSONResource(drc, drm).extractMetrics.get
-                case JSON_API => JSONAPIResource(drc, drm).extractMetrics.get
-                case XML => XMLResource(drc, drm).extractMetrics.get
-                case XML_API => XMLAPIResource(drc, drm).extractMetrics.get
-                case XLSX => XLSXResource(drc, drm).extractMetrics.get
+                case JSON => JSONResource(drc, drm).extractDocuments.get
+                case JSON_API => JSONAPIResource(drc, drm).extractDocuments.get
+                case XML => XMLResource(drc, drm).extractDocuments.get
+                case XML_API => XMLAPIResource(drc, drm).extractDocuments.get
+//                case XLSX => XLSXResource(drc, drm).extractMetrics.get
               }
             }
             case (Failure(c), Success(m)) => {
@@ -70,8 +71,8 @@ object DSSDataImport {
             case (Success(c), Failure(m)) => {
               throw new IllegalArgumentException(s"Some error occurred while trying to load the resource mapping file: ${m.getMessage}.")
             }
-            case _ => {
-              throw new IllegalArgumentException("Neither the resource config file nor the mapping file could be loaded.")
+            case (Failure(c), Failure(m)) => {
+              throw new IllegalArgumentException(s"Neither the resource config file nor the mapping file could be loaded: ${c.getMessage}, ${m.getMessage}")
             }
           }
         )
@@ -80,7 +81,7 @@ object DSSDataImport {
 
       }
     } getOrElse {
-      println("Missing options: config and mapping options are required.")
+      println("Missing options: type, config and mapping options are required.")
     }
   }
 

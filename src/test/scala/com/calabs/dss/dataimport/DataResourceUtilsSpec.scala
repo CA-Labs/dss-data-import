@@ -12,7 +12,6 @@ import scala.io.Source
 class DataResourceUtilsSpec extends FunSpec {
 
   import Config._
-  import Mapping._
   import TypeAliases._
 
   describe("Data Resource Utils") {
@@ -22,10 +21,10 @@ class DataResourceUtilsSpec extends FunSpec {
      ********************************************************************************/
 
     it("should correctly parse and load JSON resource config files"){
-      val correctConfig = Source.fromFile(getClass.getResource("/json/file/example-file.ok.config").getPath).getLines
-      val incorrectConfig = Source.fromFile(getClass.getResource("/json/file/example-file.ko.config").getPath).getLines
+      val correctConfig = Source.fromFile(getClass.getResource("/json/file/example-file.ok.config").getPath).getLines.toList
+      val incorrectConfig = Source.fromFile(getClass.getResource("/json/file/example-file.ko.config").getPath).getLines.toList
       try {
-        jsonResourceConfig.check(parseConfigLines(correctConfig))
+        jsonResourceConfig.check(Parsing.extractConfig((correctConfig)))
         val config = jsonResourceConfig.load(getClass.getResource("/json/file/example-file.ok.config").getPath)
         assert(config.isSuccess)
         config.get match {
@@ -39,15 +38,15 @@ class DataResourceUtilsSpec extends FunSpec {
         case e: Throwable => fail(e.getMessage)
       }
       intercept[IllegalArgumentException] {
-        jsonResourceConfig.check(parseConfigLines(incorrectConfig))
+        jsonResourceConfig.check(Parsing.extractConfig(incorrectConfig))
       }
     }
 
     it("should correctly parse and load JSON API resource config files"){
-      val correctConfig = Source.fromFile(getClass.getResource("/json/api/example-api.ok.config").getPath).getLines
-      val incorrectConfig = Source.fromFile(getClass.getResource("/json/api/example-api.ko.config").getPath).getLines
+      val correctConfig = Source.fromFile(getClass.getResource("/json/api/example-api.ok.config").getPath).getLines.toList
+      val incorrectConfig = Source.fromFile(getClass.getResource("/json/api/example-api.ko.config").getPath).getLines.toList
       try {
-        jsonApiResourceConfig.check(parseConfigLines(correctConfig))
+        jsonApiResourceConfig.check(Parsing.extractConfig(correctConfig))
         val config = jsonApiResourceConfig.load(getClass.getResource("/json/api/example-api.ok.config").getPath)
         assert(config.isSuccess)
         config.get match {
@@ -62,39 +61,7 @@ class DataResourceUtilsSpec extends FunSpec {
         case e: Throwable => fail(e.getMessage)
       }
       intercept[IllegalArgumentException] {
-        jsonApiResourceConfig.check(parseConfigLines(incorrectConfig))
-      }
-    }
-
-    it("should correctly parse and load JSON resource mapping files"){
-      val correctMapping = Source.fromFile(getClass.getResource("/json/file/example-file.ok.map").getPath).getLines
-      val incorrectMapping = Source.fromFile(getClass.getResource("/json/file/example-file.ko.map").getPath).getLines
-      try {
-        val metrics = parseMappingLines(correctMapping)
-        assert(metrics.get("metric1") == Some("$.foo.bar[0].foo"))
-        assert(metrics.get("metric2") == Some("$.bar"))
-        assert(metrics.get("metric3") == Some("$.baz.baz"))
-      } catch {
-        case e: IllegalArgumentException => fail(e.getMessage)
-      }
-      intercept[IllegalArgumentException] {
-        parseMappingLines(incorrectMapping)
-      }
-    }
-
-    it("should correctly parse and load JSON API resource mapping files"){
-      val correctMapping = Source.fromFile(getClass.getResource("/json/api/example-api.ok.map").getPath).getLines
-      val incorrectMapping = Source.fromFile(getClass.getResource("/json/api/example-api.ko.map").getPath).getLines
-      try {
-        val metrics = parseMappingLines(correctMapping)
-        assert(metrics.get("login") == Some("$.login"))
-        assert(metrics.get("url") == Some("$.url"))
-        assert(metrics.get("email") == Some("$.email"))
-      } catch {
-        case e: IllegalArgumentException => fail(e.getMessage)
-      }
-      intercept[IllegalArgumentException] {
-        parseMappingLines(incorrectMapping)
+        jsonApiResourceConfig.check(Parsing.extractConfig((incorrectConfig)))
       }
     }
 
@@ -103,10 +70,10 @@ class DataResourceUtilsSpec extends FunSpec {
       ********************************************************************************/
 
     it("should correctly parse and load XML resource config files"){
-      val correctConfig = Source.fromFile(getClass.getResource("/xml/file/example-file.ok.config").getPath).getLines
-      val incorrectConfig = Source.fromFile(getClass.getResource("/xml/file/example-file.ko.config").getPath).getLines
+      val correctConfig = Source.fromFile(getClass.getResource("/xml/file/example-file.ok.config").getPath).getLines.toList
+      val incorrectConfig = Source.fromFile(getClass.getResource("/xml/file/example-file.ko.config").getPath).getLines.toList
       try {
-        xmlResourceConfig.check(parseConfigLines(correctConfig))
+        xmlResourceConfig.check(Parsing.extractConfig((correctConfig)))
         val config = xmlResourceConfig.load(getClass.getResource("/xml/file/example-file.ok.config").getPath)
         assert(config.isSuccess)
         config.get match {
@@ -119,15 +86,15 @@ class DataResourceUtilsSpec extends FunSpec {
         case e: Throwable => fail(e.getMessage)
       }
       intercept[IllegalArgumentException] {
-        xmlResourceConfig.check(parseConfigLines(incorrectConfig))
+        xmlResourceConfig.check(Parsing.extractConfig((incorrectConfig)))
       }
     }
 
     it("should correctly parse and load XML API resource config files"){
-      val correctConfig = Source.fromFile(getClass.getResource("/xml/api/example-api.ok.config").getPath).getLines
-      val incorrectConfig = Source.fromFile(getClass.getResource("/xml/api/example-api.ko.config").getPath).getLines
+      val correctConfig = Source.fromFile(getClass.getResource("/xml/api/example-api.ok.config").getPath).getLines.toList
+      val incorrectConfig = Source.fromFile(getClass.getResource("/xml/api/example-api.ko.config").getPath).getLines.toList
       try {
-        xmlApiResourceConfig.check(parseConfigLines(correctConfig))
+        xmlApiResourceConfig.check(Parsing.extractConfig(correctConfig))
         val config = xmlApiResourceConfig.load(getClass.getResource("/xml/api/example-api.ok.config").getPath)
         assert(config.isSuccess)
         config.get match {
@@ -141,39 +108,7 @@ class DataResourceUtilsSpec extends FunSpec {
         case e: Throwable => fail(e.getMessage)
       }
       intercept[IllegalArgumentException] {
-        xmlApiResourceConfig.check(parseConfigLines(incorrectConfig))
-      }
-    }
-
-    it("should correctly parse and load XML resource mapping files"){
-      val correctMapping = Source.fromFile(getClass.getResource("/xml/file/example-file.ok.map").getPath).getLines
-      val incorrectMapping = Source.fromFile(getClass.getResource("/xml/file/example-file.ko.map").getPath).getLines
-      try {
-        val metrics = parseMappingLines(correctMapping)
-        assert(metrics.get("metric1") == Some("string(/bookstore/book[1]/title)"))
-        assert(metrics.get("metric2") == Some("string(/bookstore/book[1]/author)"))
-        assert(metrics.get("metric3") == Some("number(/bookstore/book[1]/year)"))
-        assert(metrics.get("metric4") == Some("number(/bookstore/book[1]/price)"))
-      } catch {
-        case e: IllegalArgumentException => fail(e.getMessage)
-      }
-      intercept[IllegalArgumentException] {
-        parseMappingLines(incorrectMapping)
-      }
-    }
-
-    it("should correctly parse and load XML API resource mapping files"){
-      val correctMapping = Source.fromFile(getClass.getResource("/xml/api/example-api.ok.map").getPath).getLines
-      val incorrectMapping = Source.fromFile(getClass.getResource("/xml/api/example-api.ko.map").getPath).getLines
-      try {
-        val metrics = parseMappingLines(correctMapping)
-        assert(metrics.get("name") == Some("string(/current/city/@name)"))
-        assert(metrics.get("country") == Some("string(/current/city/country)"))
-      } catch {
-        case e: IllegalArgumentException => fail(e.getMessage)
-      }
-      intercept[IllegalArgumentException] {
-        parseMappingLines(incorrectMapping)
+        xmlApiResourceConfig.check(Parsing.extractConfig(incorrectConfig))
       }
     }
 
@@ -181,42 +116,26 @@ class DataResourceUtilsSpec extends FunSpec {
       ************************************** XLSX ************************************
       ********************************************************************************/
 
-    it("should correctly parse and load XLSX resource config files"){
-      val correctConfig = Source.fromFile(getClass.getResource("/xlsx/example-xlsx.ok.config").getPath).getLines
-      val incorrectConfig = Source.fromFile(getClass.getResource("/xlsx/example-xlsx.ko.config").getPath).getLines
-      try {
-        xlsxResourceConfig.check(parseConfigLines(correctConfig))
-        val config = xlsxResourceConfig.load(getClass.getResource("/xlsx/example-xlsx.ok.config").getPath)
-        assert(config.isSuccess)
-        config.get match {
-          case (source: DataSource, resourceType: ResourceType, sheet: XLSXSheet) => {
-            assert(source == "example.xlsx")
-            assert(resourceType == ResourceType.XLSX)
-            assert(sheet == "test")
-          }
-        }
-      } catch {
-        case e: Throwable => fail(e.getMessage)
-      }
-      intercept[IllegalArgumentException] {
-        xlsxResourceConfig.check(parseConfigLines(incorrectConfig))
-      }
-    }
-
-    it("should correctly parse and load XLSX resource mapping files"){
-      val correctMapping = Source.fromFile(getClass.getResource("/xlsx/example-xlsx.ok.map").getPath).getLines
-      val incorrectMapping = Source.fromFile(getClass.getResource("/xlsx/example-xlsx.ko.map").getPath).getLines
-      try {
-        val metrics = parseMappingLines(correctMapping)
-        assert(metrics.get("metric1") == Some("0,1"))
-        assert(metrics.get("metric2") == Some("1,1"))
-        assert(metrics.get("metric3") == Some("2,1"))
-      } catch {
-        case e: IllegalArgumentException => fail(e.getMessage)
-      }
-      intercept[IllegalArgumentException] {
-        parseMappingLines(incorrectMapping)
-      }
+    ignore("should correctly parse and load XLSX resource config files"){
+//      val correctConfig = Source.fromFile(getClass.getResource("/xlsx/example-xlsx.ok.config").getPath).getLines
+//      val incorrectConfig = Source.fromFile(getClass.getResource("/xlsx/example-xlsx.ko.config").getPath).getLines
+//      try {
+//        xlsxResourceConfig.check(parseConfigLines(correctConfig))
+//        val config = xlsxResourceConfig.load(getClass.getResource("/xlsx/example-xlsx.ok.config").getPath)
+//        assert(config.isSuccess)
+//        config.get match {
+//          case (source: DataSource, resourceType: ResourceType, sheet: XLSXSheet) => {
+//            assert(source == "example.xlsx")
+//            assert(resourceType == ResourceType.XLSX)
+//            assert(sheet == "test")
+//          }
+//        }
+//      } catch {
+//        case e: Throwable => fail(e.getMessage)
+//      }
+//      intercept[IllegalArgumentException] {
+//        xlsxResourceConfig.check(parseConfigLines(incorrectConfig))
+//      }
     }
 
   }

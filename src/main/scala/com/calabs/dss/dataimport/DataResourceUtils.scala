@@ -11,70 +11,27 @@ import TypeAliases._
  * 3/12/14
  */
 
-trait Mapping[A] {
-  def load(path: String) : Try[Map[Metric, MetricPath]]
+/**
+ * A base Mapper trait which extracts document key/values mappings. Every key represents
+ * a document property and every value where this document property can be found within a
+ * document resource so further on it can be extracted.
+ */
+trait Mapper {
+  def load(path: String) : Try[(List[Map[Metric, MetricPath]])] = {
+    val sourceFile = Source.fromFile(path)
+    val sourceContent = sourceFile.getLines().toList
+    Try(Parsing.extractMappings(sourceContent))
+  }
 }
 
-object Mapping {
+case class DataResourceMapper() extends Mapper
 
-  val FIELD_SEPARATOR = "::"
-
-  def parseMappingLines(lines: Iterator[String]) : Map[Metric, MetricPath] = {
-    def parseLine(line: String) : (Metric, MetricPath) = {
-      val params = line.split(FIELD_SEPARATOR)
-      if(params.length != 2) throw new IllegalArgumentException(s"Wrong number of parameters for line $line")
-      else (params.head, params.tail.head)
-    }
-    lines.map(line => parseLine(line)).toList.groupBy(_._1).map{ case(k,v) => (k, v.head._2) }
-  }
-
-  implicit val jsonResourceMapping: Mapping[JSONResource] = new Mapping[JSONResource] {
-    // JSON resource mapping load
-    override def load(path: String): Try[Map[Metric, MetricPath]] = {
-      val sourceFile = Source.fromFile(path)
-      val sourceContent = sourceFile.getLines()
-      Try(parseMappingLines(sourceContent))
-    }
-  }
-
-  implicit val jsonApiResourceMapping: Mapping[JSONAPIResource] = new Mapping[JSONAPIResource] {
-    // JSON API resource mapping load
-    override def load(path: String): Try[Map[Metric, MetricPath]] = {
-      val sourceFile = Source.fromFile(path)
-      val sourceContent = sourceFile.getLines()
-      Try(parseMappingLines(sourceContent))
-    }
-  }
-
-  implicit val xmlResourceMapping : Mapping[XMLResource] = new Mapping[XMLResource] {
-    // XML resource mapping load
-    override def load(path: String): Try[Map[Metric, MetricPath]] = {
-      val sourceFile = Source.fromFile(path)
-      val sourceContent = sourceFile.getLines()
-      Try(parseMappingLines(sourceContent))
-    }
-  }
-
-  implicit val xmlApiResourceMapping : Mapping[XMLAPIResource] = new Mapping[XMLAPIResource] {
-    // XML API resource mapping load
-    override def load(path: String): Try[Map[Metric, MetricPath]] = {
-      val sourceFile = Source.fromFile(path)
-      val sourceContent = sourceFile.getLines()
-      Try(parseMappingLines(sourceContent))
-    }
-  }
-
-  implicit val xlsxResourceMapping : Mapping[XLSXResource] = new Mapping[XLSXResource] {
-    // XLSX resource mapping load
-    override def load(path: String): Try[Map[Metric, MetricPath]] = {
-      val sourceFile = Source.fromFile(path)
-      val sourceContent = sourceFile.getLines()
-      Try(parseMappingLines(sourceContent))
-    }
-  }
-
-}
-
+/**
+ * A base configuration type-class. Every data resource has a configuration which defines where
+ * this resource can be found, the resource type and some extra parameters, which are different between
+ * different data resources.
+ * @tparam A
+ */
 trait Config[A] {
   def load(path: String) : Try[Product]
   def check(config: Map[ConfigKey, ConfigValue]) : Product
@@ -82,26 +39,13 @@ trait Config[A] {
 
 object Config {
 
-  val FIELD_SEPARATOR = "::"
-  val HEADERS_SEPARATOR = ","
-  val HEADER_SEPARATOR = "=>"
-
-  def parseConfigLines(lines: Iterator[String]) : Map[ConfigKey, ConfigValue] = {
-    def parseLine(line: String) : (ConfigKey, ConfigValue) = {
-      val params = line.split(FIELD_SEPARATOR)
-      if(params.length != 2) throw new IllegalArgumentException(s"Wrong number of parameters for line $line")
-      else (params.head, params.tail.head)
-    }
-    lines.map(line => parseLine(line)).toList.groupBy(_._1).map{ case(k,v) => (k, v.head._2) }
-  }
-
   implicit val jsonResourceConfig : Config[JSONResource] = new Config[JSONResource]{
 
     override def load(path: String): Try[Product] = {
       // JSON resource load
       val sourceFile = Source.fromFile(path)
-      val sourceContent = sourceFile.getLines()
-      Try(check(parseConfigLines(sourceContent)))
+      val sourceContent = sourceFile.getLines().toList
+      Try(check(Parsing.extractConfig(sourceContent)))
     }
 
     override def check(config: Map[ConfigKey, ConfigValue]) : Product = {
@@ -124,8 +68,8 @@ object Config {
     override def load(path: String): Try[Product] = {
       // JSON API resource load
       val sourceFile = Source.fromFile(path)
-      val sourceContent = sourceFile.getLines()
-      Try(check(parseConfigLines(sourceContent)))
+      val sourceContent = sourceFile.getLines().toList
+      Try(check(Parsing.extractConfig(sourceContent)))
     }
 
     override def check(config: Map[ConfigKey, ConfigValue]) : Product = {
@@ -141,9 +85,9 @@ object Config {
       val headers = config.get("headers") match {
         case Some(headers) => {
           val httpHeaders = MutableMap[HeaderKey, HeaderValue]()
-          val rawHeaders = headers.toString.split(HEADERS_SEPARATOR)
+          val rawHeaders = headers.toString.split(Parsing.Tags.MAP_SEPARATOR)
           rawHeaders.foreach(rawHeader => {
-            val headerKeyValue = rawHeader.split(HEADER_SEPARATOR)
+            val headerKeyValue = rawHeader.split(Parsing.Tags.MAP_KEY_VALUE_SEPARATOR)
             if(headerKeyValue.length != 2) throw new IllegalArgumentException("Wrong headers specification in resource config file.")
             else httpHeaders.update(headerKeyValue.head, headerKeyValue.tail.head)
           })
@@ -161,8 +105,8 @@ object Config {
     override def load(path: String): Try[Product] = {
       // XML resource load
       val sourceFile = Source.fromFile(path)
-      val sourceContent = sourceFile.getLines()
-      Try(check(parseConfigLines(sourceContent)))
+      val sourceContent = sourceFile.getLines().toList
+      Try(check(Parsing.extractConfig(sourceContent)))
     }
 
     override def check(config: Map[ConfigKey, ConfigValue]) : Product = {
@@ -185,8 +129,8 @@ object Config {
     override def load(path: String): Try[Product] = {
       // XML API resource load
       val sourceFile = Source.fromFile(path)
-      val sourceContent = sourceFile.getLines()
-      Try(check(parseConfigLines(sourceContent)))
+      val sourceContent = sourceFile.getLines().toList
+      Try(check(Parsing.extractConfig(sourceContent)))
     }
 
     override def check(config: Map[ConfigKey, ConfigValue]) : Product = {
@@ -202,9 +146,9 @@ object Config {
       val headers = config.get("headers") match {
         case Some(headers) => {
           val httpHeaders = MutableMap[HeaderKey, HeaderValue]()
-          val rawHeaders = headers.toString.split(HEADERS_SEPARATOR)
+          val rawHeaders = headers.toString.split(Parsing.Tags.MAP_SEPARATOR)
           rawHeaders.foreach(rawHeader => {
-            val headerKeyValue = rawHeader.split(HEADER_SEPARATOR)
+            val headerKeyValue = rawHeader.split(Parsing.Tags.MAP_KEY_VALUE_SEPARATOR)
             if(headerKeyValue.length != 2) throw new IllegalArgumentException("Wrong headers specification in resource config file.")
             else httpHeaders.update(headerKeyValue.head, headerKeyValue.tail.head)
           })
@@ -216,32 +160,32 @@ object Config {
     }
   }
 
-  implicit val xlsxResourceConfig : Config[XLSXResource] = new Config[XLSXResource]{
-
-    override def load(path: String): Try[Product] = {
-      // XLSX resource load
-      val sourceFile = Source.fromFile(path)
-      val sourceContent = sourceFile.getLines()
-      Try(check(parseConfigLines(sourceContent)))
-    }
-
-    override def check(config: Map[ConfigKey, ConfigValue]): Product = {
-      // XLSX resource config check (mandatory properties are: source, resourceType and sheet)
-      val source = config.get("source") match {
-        case Some(source) => source.toString
-        case None => throw new NoSuchElementException("Missing source parameter in resource config file.")
-      }
-      val resourceType = config.get("resourceType") match {
-        case Some(resourceType) => resourceType.toString
-        case None => throw new NoSuchElementException("Missing resource type parameter in resource config file.")
-      }
-      val sheet = config.get("sheet") match {
-        case Some(sheet) => sheet.toString
-        case None => throw new NoSuchElementException("Missing sheet parameter in resource config file.")
-      }
-      (source, resourceType, sheet)
-    }
-
-  }
+//  implicit val xlsxResourceConfig : Config[XLSXResource] = new Config[XLSXResource]{
+//
+//    override def load(path: String): Try[Product] = {
+//      // XLSX resource load
+//      val sourceFile = Source.fromFile(path)
+//      val sourceContent = sourceFile.getLines()
+//      Try(check(parseConfigLines(sourceContent)))
+//    }
+//
+//    override def check(config: Map[ConfigKey, ConfigValue]): Product = {
+//      // XLSX resource config check (mandatory properties are: source, resourceType and sheet)
+//      val source = config.get("source") match {
+//        case Some(source) => source.toString
+//        case None => throw new NoSuchElementException("Missing source parameter in resource config file.")
+//      }
+//      val resourceType = config.get("resourceType") match {
+//        case Some(resourceType) => resourceType.toString
+//        case None => throw new NoSuchElementException("Missing resource type parameter in resource config file.")
+//      }
+//      val sheet = config.get("sheet") match {
+//        case Some(sheet) => sheet.toString
+//        case None => throw new NoSuchElementException("Missing sheet parameter in resource config file.")
+//      }
+//      (source, resourceType, sheet)
+//    }
+//
+//  }
 
 }

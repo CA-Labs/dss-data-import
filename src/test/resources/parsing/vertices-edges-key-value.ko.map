@@ -1,0 +1,15 @@
+key1::value1::bad
+key2::value2
+
+key1::value1
+key2::value2::bad
+
+key3::value3
+key4::value4::bad
+__from::from
+__to::to
+
+key3::value3
+key4::value4
+__from::key1=>some value
+__to::key2=>some other value
