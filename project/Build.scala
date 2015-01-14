@@ -7,7 +7,15 @@ object BuildSettings {
     name := "dss-data-import",
     organization := "com.calabs",
     version := "0.0.1-SNAPSHOT",
-    scalaVersion := "2.10.4"
+    scalaVersion := "2.10.4",
+    publishTo := {
+      val dss = "http://147.83.42.135:8081/artifactory/"
+      if (isSnapshot.value)
+        Some("snapshots" at dss + "snapshots")
+      else
+        Some("internal" at dss + "internal")
+    },
+    credentials += Credentials(Path.userHome / ".ivy2" / ".dss_artifactory")
   )
 }
 
