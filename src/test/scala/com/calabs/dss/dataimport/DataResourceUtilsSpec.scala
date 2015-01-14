@@ -11,49 +11,131 @@ import scala.io.Source
  */
 class DataResourceUtilsSpec extends FunSpec {
 
+  import Config._
+  import TypeAliases._
+
   describe("Data Resource Utils") {
 
-    it("should correctly parse config files"){
-      val correctConfig = Source.fromFile(getClass.getResource("/json/file/example-file.ok.config").getPath).getLines
-      val incorrectConfig = Source.fromFile(getClass.getResource("/json/file/example-file.ko.config").getPath).getLines
+    /*********************************************************************************
+     *************************************** JSON ************************************
+     ********************************************************************************/
+
+    it("should correctly parse and load JSON resource config files"){
+      val correctConfig = Source.fromFile(getClass.getResource("/json/file/example-file.ok.config").getPath).getLines.toList
+      val incorrectConfig = Source.fromFile(getClass.getResource("/json/file/example-file.ko.config").getPath).getLines.toList
       try {
-        DataResourceUtils.checkConfigParams(DataResourceUtils.parseConfigLines(correctConfig))
+        jsonResourceConfig.check(Parsing.extractConfig((correctConfig)))
+        val config = jsonResourceConfig.load(getClass.getResource("/json/file/example-file.ok.config").getPath)
+        assert(config.isSuccess)
+        config.get match {
+          case (source: DataSource, resourceType: ResourceType) => {
+            assert(source == "example-file.json")
+            assert(resourceType == ResourceType.JSON)
+          }
+          case _ => fail("Wrong number of configuration parameters: only source and resourceType are expected for JSON resources.")
+        }
       } catch {
         case e: Throwable => fail(e.getMessage)
       }
       intercept[IllegalArgumentException] {
-        DataResourceUtils.checkConfigParams(DataResourceUtils.parseConfigLines(incorrectConfig))
+        jsonResourceConfig.check(Parsing.extractConfig(incorrectConfig))
       }
     }
 
-    it("should correctly parse mapping files"){
-      val correctMapping = Source.fromFile(getClass.getResource("/json/file/example-file.ok.map").getPath).getLines
-      val incorrectMapping = Source.fromFile(getClass.getResource("/json/file/example-file.ko.map").getPath).getLines
+    it("should correctly parse and load JSON API resource config files"){
+      val correctConfig = Source.fromFile(getClass.getResource("/json/api/example-api.ok.config").getPath).getLines.toList
+      val incorrectConfig = Source.fromFile(getClass.getResource("/json/api/example-api.ko.config").getPath).getLines.toList
       try {
-        DataResourceUtils.parseMappingLines(correctMapping)
+        jsonApiResourceConfig.check(Parsing.extractConfig(correctConfig))
+        val config = jsonApiResourceConfig.load(getClass.getResource("/json/api/example-api.ok.config").getPath)
+        assert(config.isSuccess)
+        config.get match {
+          case (source: DataSource, resourceType: ResourceType, headers: HTTPHeaders) => {
+            assert(source == "https://api.github.com/users/jarandaf")
+            assert(resourceType == ResourceType.JSON_API)
+            assert(headers.get("accept") == Some("*"))
+          }
+          case _ => fail("Wrong number of configuration parameters: only source, resourceType and headers are expected for JSON API resources.")
+        }
       } catch {
-        case e: IllegalArgumentException => fail(e.getMessage)
-        case _: Throwable => fail("Unexpected exception while parsing the mapping file.")
+        case e: Throwable => fail(e.getMessage)
       }
       intercept[IllegalArgumentException] {
-        DataResourceUtils.parseMappingLines(incorrectMapping)
+        jsonApiResourceConfig.check(Parsing.extractConfig((incorrectConfig)))
       }
     }
 
-    it("should correctly load config files"){
-      val config = DataResourceUtils.loadConfig(getClass.getResource("/json/file/example-file.ok.config").getPath)
-      assert(config.isSuccess)
-      assert(config.get._1 == "example-file.json")
-      assert(config.get._2 == "json")
-      assert(config.get._3 == "utf-8")
+    /*********************************************************************************
+      *************************************** XML ************************************
+      ********************************************************************************/
+
+    it("should correctly parse and load XML resource config files"){
+      val correctConfig = Source.fromFile(getClass.getResource("/xml/file/example-file.ok.config").getPath).getLines.toList
+      val incorrectConfig = Source.fromFile(getClass.getResource("/xml/file/example-file.ko.config").getPath).getLines.toList
+      try {
+        xmlResourceConfig.check(Parsing.extractConfig((correctConfig)))
+        val config = xmlResourceConfig.load(getClass.getResource("/xml/file/example-file.ok.config").getPath)
+        assert(config.isSuccess)
+        config.get match {
+          case (source: DataSource, resourceType: ResourceType) => {
+            assert(source == "example-file.xml")
+            assert(resourceType == ResourceType.XML)
+          }
+        }
+      } catch {
+        case e: Throwable => fail(e.getMessage)
+      }
+      intercept[IllegalArgumentException] {
+        xmlResourceConfig.check(Parsing.extractConfig((incorrectConfig)))
+      }
     }
 
-    it("should correctly load mapping files"){
-      val mapping = DataResourceUtils.loadMapping(getClass.getResource("/json/file/example-file.ok.map").getPath)
-      assert(mapping.isSuccess)
-      assert(mapping.get.get("metric1") == Some("$.foo.bar[0].foo"))
-      assert(mapping.get.get("metric2") == Some("$.bar"))
-      assert(mapping.get.get("metric3") == Some("$.baz.baz"))
+    it("should correctly parse and load XML API resource config files"){
+      val correctConfig = Source.fromFile(getClass.getResource("/xml/api/example-api.ok.config").getPath).getLines.toList
+      val incorrectConfig = Source.fromFile(getClass.getResource("/xml/api/example-api.ko.config").getPath).getLines.toList
+      try {
+        xmlApiResourceConfig.check(Parsing.extractConfig(correctConfig))
+        val config = xmlApiResourceConfig.load(getClass.getResource("/xml/api/example-api.ok.config").getPath)
+        assert(config.isSuccess)
+        config.get match {
+          case (source: DataSource, resourceType: ResourceType, headers: HTTPHeaders) => {
+            assert(source == "http://api.openweathermap.org/data/2.5/weather?q=London&mode=xml")
+            assert(resourceType == ResourceType.XML_API)
+            assert(headers.get("accept") == Some("*"))
+          }
+        }
+      } catch {
+        case e: Throwable => fail(e.getMessage)
+      }
+      intercept[IllegalArgumentException] {
+        xmlApiResourceConfig.check(Parsing.extractConfig(incorrectConfig))
+      }
+    }
+
+    /*********************************************************************************
+      ************************************** XLSX ************************************
+      ********************************************************************************/
+
+    ignore("should correctly parse and load XLSX resource config files"){
+//      val correctConfig = Source.fromFile(getClass.getResource("/xlsx/example-xlsx.ok.config").getPath).getLines
+//      val incorrectConfig = Source.fromFile(getClass.getResource("/xlsx/example-xlsx.ko.config").getPath).getLines
+//      try {
+//        xlsxResourceConfig.check(parseConfigLines(correctConfig))
+//        val config = xlsxResourceConfig.load(getClass.getResource("/xlsx/example-xlsx.ok.config").getPath)
+//        assert(config.isSuccess)
+//        config.get match {
+//          case (source: DataSource, resourceType: ResourceType, sheet: XLSXSheet) => {
+//            assert(source == "example.xlsx")
+//            assert(resourceType == ResourceType.XLSX)
+//            assert(sheet == "test")
+//          }
+//        }
+//      } catch {
+//        case e: Throwable => fail(e.getMessage)
+//      }
+//      intercept[IllegalArgumentException] {
+//        xlsxResourceConfig.check(parseConfigLines(incorrectConfig))
+//      }
     }
 
   }
