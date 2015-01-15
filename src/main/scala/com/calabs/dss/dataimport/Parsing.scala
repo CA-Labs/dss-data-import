@@ -43,12 +43,13 @@ private[dataimport] object Parsing {
   type Chunk = List[String]
 
   object Tags {
-    val FROM = "__from"
-    val TO = "__to"
     val PROPS_SEPARATOR = "\n"
     val KEY_VALUE_SEPARATOR = "::"
     val MAP_KEY_VALUE_SEPARATOR = "=>"
     val MAP_SEPARATOR = ","
+    val SEARCHABLE_CRITERIA = "__"
+    val FROM = SEARCHABLE_CRITERIA + "from"
+    val TO = SEARCHABLE_CRITERIA + "to"
   }
 
   /**
@@ -57,13 +58,20 @@ private[dataimport] object Parsing {
    * @param line The input line to parse.
    * @return The map extracted.
    */
-  private[this] def stringToMap(line: String) : Map[String, String] = {
+  def stringToMap(line: String) : Map[String, String] = {
     line.split(Tags.MAP_SEPARATOR).map(mapValue => {
       val keyValue = mapValue.split(Tags.MAP_KEY_VALUE_SEPARATOR)
       if (keyValue.length != 2) throw new IllegalArgumentException(s"Wrong number of parameters in key/value $line")
       else (keyValue(0), keyValue(1))
     }).toMap
   }
+
+  /**
+   * Determines whether a key is a searchable criteria or not.
+   * @param key The key to check it is a searchable criteria
+   * @return
+   */
+  def isSearchableCriteria(key: String) : Boolean = key.startsWith(Tags.SEARCHABLE_CRITERIA) && !key.startsWith(Tags.FROM) && !key.startsWith(Tags.TO)
 
   /**
    * Extracts a document resource configuration, which is in turn a simple keys/values map.
