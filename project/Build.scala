@@ -11,9 +11,9 @@ object BuildSettings {
     publishTo := {
       val dss = "http://147.83.42.135:8081/artifactory/"
       if (isSnapshot.value)
-        Some("snapshots" at dss + "snapshots")
+        Some("snapshots" at dss + "sbt-snapshots")
       else
-        Some("internal" at dss + "internal")
+        Some("internal" at dss + "sbt-internal")
     },
     credentials += Credentials(Path.userHome / ".ivy2" / ".dss_artifactory")
   )
