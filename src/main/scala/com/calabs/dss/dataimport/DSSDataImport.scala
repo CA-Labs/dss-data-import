@@ -23,7 +23,7 @@ object DSSDataImport {
     implicit val formats = DefaultFormats
     result match {
       case Success(r) => Serialization.write(List(("vertices" -> r._1.map(_.props)), ("edges" -> r._2.map(_.props))).toMap)
-      case Failure(e) => Serialization.write(List(("exception" -> true), ("reason" -> e.getMessage)).toMap)
+      case Failure(e) => Serialization.write(List(("error" -> true), ("reason" -> e.getMessage)).toMap)
     }
   }
 

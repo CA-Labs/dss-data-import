@@ -2,6 +2,7 @@ package com.calabs.dss.dataimport
 
 import java.util
 
+import org.json4s.JsonAST.{JArray, JInt, JString}
 import org.scalatest.FunSpec
 import scala.collection.mutable.{Map => MutableMap}
 import scala.io.Source
@@ -34,9 +35,9 @@ class JSONDataResourceSpec extends FunSpec {
             case Success(docs) => {
               val (vertices, edges) = (docs._1, docs._2)
               assert(vertices(0).isVertex)
-              assert(vertices(0).props.get("metric1") == Some("bar"))
-              assert(vertices(0).props.get("metric2") == Some(2))
-              assert(vertices(0).props.get("metric3") == Some(List(1,2,3)))
+              assert(vertices(0).props.get("metric1") == Some(JString("bar")))
+              assert(vertices(0).props.get("metric2") == Some(JInt(2)))
+              assert(vertices(0).props.get("metric3") == Some(JArray(List(JInt(1),JInt(2),JInt(3)))))
             }
             case Failure(e) => fail(s"Some error occured while trying to extract documents from the JSON resource: ${e.getMessage}.")
           }
@@ -64,9 +65,9 @@ class JSONDataResourceSpec extends FunSpec {
             case Success(docs) => {
               val (vertices, edges) = (docs._1, docs._2)
               assert(vertices(0).isVertex)
-              assert(vertices(0).props.get("login") == Some("jarandaf"))
-              assert(vertices(0).props.get("url") == Some("https://api.github.com/users/jarandaf"))
-              assert(vertices(0).props.get("email") == Some("jordi.aranda@bsc.es"))
+              assert(vertices(0).props.get("login") == Some(JString("jarandaf")))
+              assert(vertices(0).props.get("url") == Some(JString("https://api.github.com/users/jarandaf")))
+              assert(vertices(0).props.get("email") == Some(JString("jordi.aranda@bsc.es")))
             }
             case Failure(e) => fail(s"Some error occurred while trying to extract documents from the JSON resource: ${e.getMessage}.")
           }

@@ -1,9 +1,12 @@
 package com.calabs.dss.dataimport
 
 import com.calabs.dss.dataimport.TypeAliases._
+import org.json4s.JsonAST._
 
 import scala.annotation.tailrec
+import scala.collection.MapLike
 import scala.collection.mutable.{Map => MutableMap}
+import scala.util.{Failure, Success}
 
 /**
  * Created by Jordi Aranda
@@ -13,7 +16,7 @@ import scala.collection.mutable.{Map => MutableMap}
 
 // Base trait which represents a database entity
 sealed trait Element {
-  def props: Map[String, Any]
+  def props: Map[String, JValue]
   def isVertex: Boolean
   def isEdge: Boolean
   def isDocument: Boolean
@@ -27,13 +30,13 @@ sealed trait Document extends Element {
 }
 
 // Database entity (vertex) in NoSQL graph databases
-case class Vertex(props: Map[String, Any]) extends Document {
+case class Vertex(props: Map[String, JValue]) extends Document {
   override def isVertex: Boolean = true
   override def isEdge: Boolean = false
 }
 
 // Database entity (edge) in NoSQL graph databases
-case class Edge(props: Map[String, Any]) extends Document {
+case class Edge(props: Map[String, JValue]) extends Document {
   override def isVertex: Boolean = false
   override def isEdge: Boolean = true
 }
@@ -67,11 +70,13 @@ private[dataimport] object Parsing {
   }
 
   /**
-   * Determines whether a key is a searchable criteria or not.
-   * @param key The key to check it is a searchable criteria
+   * Determines whether an element properties map indicates an update action needs to be carried out.
+   * @param props The element properties (key/value pairs).
    * @return
    */
-  def isSearchableCriteria(key: String) : Boolean = key.startsWith(Tags.SEARCHABLE_CRITERIA) && !key.startsWith(Tags.FROM) && !key.startsWith(Tags.TO)
+  def updateRequired(props: Map[String, JValue]) : Boolean = {
+    props.filterKeys(key => !key.startsWith(Tags.FROM) && !key.startsWith(Tags.TO) && key.startsWith(Tags.SEARCHABLE_CRITERIA)).size > 0
+  }
 
   /**
    * Extracts a document resource configuration, which is in turn a simple keys/values map.
@@ -95,26 +100,8 @@ private[dataimport] object Parsing {
    * @param props The key/values map associated to this element.
    * @return The element extracted.
    */
-  def extractDocument(props: Map[String, Any]) : Document = {
-    if (props.contains(Tags.FROM) && props.contains(Tags.FROM)) {
-      val from = stringToMap(props.get(Tags.FROM).get.toString)
-      val to = stringToMap(props.get(Tags.TO).get.toString)
-
-      // Create new properties map for new from/to extracted property maps
-      val mutableMap = MutableMap[String,Any]()
-      props.foreach{ case(k,v) => {
-        if (k == Tags.FROM) mutableMap.update(k, from)
-        else if (k == Tags.TO) mutableMap.update(k, to)
-        else mutableMap.update(k,v)
-      }}
-
-      (from, to) match {
-        case (f: Map[String, String], t: Map[String, String]) => Edge(mutableMap.toMap)
-        case (f: Map[String,String], _) => throw new IllegalArgumentException(s"${Tags.TO} key must contain searchable criteria, ie must contain key/values.")
-        case (_, t: Map[String,String]) => throw new IllegalArgumentException(s"${Tags.FROM} key must contain searchable criteria, ie must contain key/values.")
-        case (_, _) => throw new IllegalArgumentException(s"${Tags.FROM} and ${Tags.TO} keys must contain searchable criteria, ie must contain key/values.")
-      }
-    } else Vertex(props)
+  def extractDocument(props: Map[String, JValue]) : Document = {
+    if (props.contains(Tags.FROM) && props.contains(Tags.TO)) Edge(props) else Vertex(props)
   }
 
   /**
@@ -161,6 +148,63 @@ private[dataimport] object Parsing {
     })
 
     mappings
+
+  }
+
+  /**
+   * Converts weakly-typed document mappings/values to json AST ones.
+   * @param props The document properties.
+   * @return
+   */
+  def checkProps(props: Map[String, Any]) : Map[String, JValue] = {
+    def checkProp(prop: Any) : JValue = prop match {
+      case string: String => JString(string)
+      case int: Int => JInt(int)
+      case double: Double => JDouble(double)
+      case boolean: Boolean => JBool(boolean)
+      case seq: Seq[Any] => JArray(seq.map(element => checkProp(element)).toList)
+      case map: MapLike[String, Any, Map[String,Any]] => JObject(map.mapValues(element => checkProp(element)).toList)
+      case set: Set[Any] => JArray(set.toList.map(element => checkProp(element)).toList)
+      case _ => throw new IllegalArgumentException(s"Invalid property value $prop")
+    }
+    props.mapValues(checkProp)
+  }
+
+  /**
+   * Given a document mapping, determines whether it contains valid searchable criteria or not
+   * @param mapping A document mapping.
+   * @return
+   */
+  def validSearchableCriteria(mapping: Map[String, JValue]) : Boolean = {
+
+    /**
+     * Given a searchable criteria object, determines whether their values types are supported or not.
+     * @param searchableCriteria A searchable criteria object.
+     * @return
+     */
+    def validCriteria(searchableCriteria: JObject) : Boolean = {
+      searchableCriteria.obj.forall(criteria => criteria._2 match {
+        case s: JString => true
+        case i: JInt => true
+        case d: JDouble => true
+        case b: JBool => true
+        case _ => false
+      })
+    }
+
+    (mapping.contains(Tags.FROM), mapping.contains(Tags.TO)) match {
+      case (true, true) => {
+        (mapping.get(Tags.FROM).get, mapping.get(Tags.TO).get) match {
+          case (from: JObject, to: JObject) => if (validCriteria(from) && validCriteria(to)) true else false
+          case (from: JObject, _) => throw new IllegalArgumentException(s"${Tags.TO} property must contain valid values (only String, Int, Double, Bool are supported)")
+          case (_, to: JObject) => throw new IllegalArgumentException(s"${Tags.FROM} property must contain valid values (only String, Int, Double, Bool are supported)")
+          case _ => throw new IllegalArgumentException(s"${Tags.FROM} and ${Tags.TO} properties must contain valid values (only String, Int, Double, Bool are supported)")
+        }
+      }
+      case (true, false) => throw new IllegalArgumentException(s"${Tags.FROM} is a reserved key (you can only use it if ${Tags.TO} is also present")
+      case (false, true) => throw new IllegalArgumentException(s"${Tags.TO} is a reserved key (you can only use it if ${Tags.FROM} is also present")
+      case (false, false) => true
+    }
 
   }
 

@@ -2,6 +2,7 @@ package com.calabs.dss.dataimport
 
 import java.util
 
+import org.json4s.JsonAST.{JString, JDouble}
 import org.scalatest.FunSpec
 
 import scala.collection.mutable.{Map => MutableMap}
@@ -37,10 +38,10 @@ class XMLDataResourceSpec extends FunSpec {
               assert(!vertices.isEmpty)
               assert(edges.isEmpty)
               assert(vertices(0).isVertex)
-              assert(vertices(0).props.get("metric1") == Some("Everyday Italian"))
-              assert(vertices(0).props.get("metric2") == Some("Giada De Laurentiis"))
-              assert(vertices(0).props.get("metric3") == Some(2005.0))
-              assert(vertices(0).props.get("metric4") == Some(30.0))
+              assert(vertices(0).props.get("metric1") == Some(JString("Everyday Italian")))
+              assert(vertices(0).props.get("metric2") == Some(JString("Giada De Laurentiis")))
+              assert(vertices(0).props.get("metric3") == Some(JDouble(2005.0)))
+              assert(vertices(0).props.get("metric4") == Some(JDouble(30.0)))
             }
             case Failure(e) => fail(s"Some error occured while trying to extract documents from the XML resource: ${e.getMessage}.")
           }
@@ -70,8 +71,8 @@ class XMLDataResourceSpec extends FunSpec {
               assert(!vertices.isEmpty)
               assert(edges.isEmpty)
               assert(vertices(0).isVertex)
-              assert(vertices(0).props.get("name") == Some("London"))
-              assert(vertices(0).props.get("country") == Some("GB"))
+              assert(vertices(0).props.get("name") == Some(JString("London")))
+              assert(vertices(0).props.get("country") == Some(JString("GB")))
             }
             case Failure(e) => fail(s"Some error occured while trying to extract documents from the XML resource: ${e.getMessage}.")
           }

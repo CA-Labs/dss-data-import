@@ -9,7 +9,7 @@ import org.dom4j.{DocumentHelper}
 import org.json4s.DefaultFormats
 
 import scala.io.{BufferedSource, Source}
-import scala.util.{Try}
+import scala.util.{Failure, Success, Try}
 import scala.collection.mutable.{Map => MutableMap}
 import TypeAliases._
 import scala.collection.JavaConverters._
@@ -99,19 +99,39 @@ case class JSONResource(config: DataResourceConfig, mapping: DataResourceMapping
         val jsonInput = jsonFile.mkString
         val json = parseJson(jsonInput)
         val documents = m.map(documentMapping => {
-          // Potential result
-          val propsMap = MutableMap[Metric, MetricValue]()
-          documentMapping.foreach {
-            case (metric, key) => {
-              val metricRawValue = JsonPath.query(key, json)
-              val metricValue = metricRawValue match {
-                case Left(error) => throw new IllegalArgumentException(s"Some error occurred when looking up metric $metric: ${error.reason}.")
-                case Right(value) => asScalaRecursive(value.next())
+          // Check document mapping types are supported
+          val mapping = Try(Parsing.checkProps(documentMapping))
+
+          mapping match {
+            case Success(mapping) => {
+              // Check searchable criteria
+              val validSearchableCriteria = Try(Parsing.validSearchableCriteria(mapping))
+              validSearchableCriteria match {
+                case Success(b) => {
+                  // Potential result
+                  val propsMap = MutableMap[Metric, MetricValue]()
+                  documentMapping.foreach {
+                    case (metric, key) => {
+                      val metricRawValue = JsonPath.query(key, json)
+                      val metricValue = metricRawValue match {
+                        case Left(error) => throw new IllegalArgumentException(s"Some error occurred when looking up metric $metric: ${error.reason}.")
+                        case Right(value) => asScalaRecursive(value.next())
+                      }
+                      propsMap.update(metric,metricValue)
+                    }
+                  }
+
+                  val propsChecked = Try(Parsing.checkProps(propsMap.toMap))
+                  propsChecked match {
+                    case Success(props) => Parsing.extractDocument(props)
+                    case Failure(e) => throw new IllegalArgumentException(s"An error occurred when checking element properties for element $documentMapping: ${e.getMessage}.")
+                  }
+                }
+                case Failure(e) => throw new IllegalArgumentException(s"Invalid searchable criteria in document mapping: ${e.getMessage}")
               }
-              propsMap.update(metric,metricValue)
             }
+            case Failure(e) => throw new IllegalArgumentException(s"Invalid document mapping: ${e.getMessage}")
           }
-          Parsing.extractDocument(propsMap.toMap)
         })
         (documents.filter(_.isVertex), documents.filter(_.isEdge))
       }
@@ -138,19 +158,39 @@ case class JSONAPIResource(config: DataResourceConfig, mapping: DataResourceMapp
         val jsonInput = jsonFile.mkString
         val json = parseJson(jsonInput)
         val documents = m.map(documentMapping => {
-          // Potential result
-          val propsMap = MutableMap[Metric, MetricValue]()
-          documentMapping.foreach {
-            case (metric, key) => {
-              val metricRawValue = JsonPath.query(key, json)
-              val metricValue = metricRawValue match {
-                case Left(error) => throw new IllegalArgumentException(s"Some error occurred when looking up metric $metric: ${error.reason}.")
-                case Right(value) => asScalaRecursive(value.next())
+          // Check document mapping types are supported
+          val mapping = Try(Parsing.checkProps(documentMapping))
+
+          mapping match {
+            case Success(mapping) => {
+              // Check searchable criteria
+              val validSearchableCriteria = Try(Parsing.validSearchableCriteria(mapping))
+              validSearchableCriteria match {
+                case Success(b) => {
+                  // Potential result
+                  val propsMap = MutableMap[Metric, MetricValue]()
+                  documentMapping.foreach {
+                    case (metric, key) => {
+                      val metricRawValue = JsonPath.query(key, json)
+                      val metricValue = metricRawValue match {
+                        case Left(error) => throw new IllegalArgumentException(s"Some error occurred when looking up metric $metric: ${error.reason}.")
+                        case Right(value) => asScalaRecursive(value.next())
+                      }
+                      propsMap.update(metric, metricValue)
+                    }
+                  }
+
+                  val propsChecked = Try(Parsing.checkProps(propsMap.toMap))
+                  propsChecked match {
+                    case Success(props) => Parsing.extractDocument(props)
+                    case Failure(e) => throw new IllegalArgumentException(s"An error occurred when checking element properties for element $documentMapping: ${e.getMessage}.")
+                  }
+                }
+                case Failure(e) => throw new IllegalArgumentException(s"Invalid searchable criteria in document mapping: ${e.getMessage}")
               }
-              propsMap.update(metric,metricValue)
             }
+            case Failure(e) => throw new IllegalArgumentException(s"Invalid document mapping: ${e.getMessage}")
           }
-          Parsing.extractDocument(propsMap.toMap)
         })
         (documents.filter(_.isVertex), documents.filter(_.isEdge))
       }
@@ -177,10 +217,31 @@ case class XMLResource(config: DataResourceConfig, mapping: DataResourceMapping)
         val xmlInput = xmlFile.mkString
         val xml = DocumentHelper.parseText(xmlInput)
         val documents = m.map(documentMapping => {
-          // Potential result
-          val propsMap = MutableMap[Metric, MetricValue]()
-          documentMapping.foreach {case (metric, key) => propsMap.update(metric, asScalaRecursive(xml.selectNodes(key)))}
-          Parsing.extractDocument(propsMap.toMap)
+          // Check document mapping types are supported
+          val mapping = Try(Parsing.checkProps(documentMapping))
+
+          mapping match {
+            case Success(mapping) => {
+              // Check searchable criteria
+              val validSearchableCriteria = Try(Parsing.validSearchableCriteria(mapping))
+              validSearchableCriteria match {
+                case Success(b) => {
+                  // Potential result
+                  val propsMap = MutableMap[Metric, MetricValue]()
+                  documentMapping.foreach { case (metric, key) => propsMap.update(metric, asScalaRecursive(xml.selectNodes(key)))}
+
+                  val propsChecked = Try(Parsing.checkProps(propsMap.toMap))
+                  propsChecked match {
+                    case Success(props) => Parsing.extractDocument(props)
+                    case Failure(e) => throw new IllegalArgumentException(s"An error occurred when checking element properties for element $documentMapping: ${e.getMessage}.")
+                  }
+                }
+                case Failure(e) => throw new IllegalArgumentException(s"Invalid searchable criteria in document mapping: ${e.getMessage}")
+              }
+            }
+            case Failure(e) => throw new IllegalArgumentException(s"Invalid document mapping: ${e.getMessage}")
+          }
+
         })
         (documents.filter(_.isVertex), documents.filter(_.isEdge))
       }
@@ -209,10 +270,31 @@ case class XMLAPIResource(config: DataResourceConfig, mapping: DataResourceMappi
         val xmlInput = xmlFile.mkString
         val xml = DocumentHelper.parseText(xmlInput)
         val documents = m.map(documentMapping => {
-          // Potential result
-          val propsMap = MutableMap[Metric, MetricValue]()
-          documentMapping.foreach {case (metric, key) => propsMap.update(metric, asScalaRecursive(xml.selectNodes(key)))}
-          Parsing.extractDocument(propsMap.toMap)
+          // Check document mapping types are supported
+          val mapping = Try(Parsing.checkProps(documentMapping))
+
+          mapping match {
+            case Success(mapping) => {
+              // Check searchable criteria
+              val validSearchableCriteria = Try(Parsing.validSearchableCriteria(mapping))
+              validSearchableCriteria match {
+                case Success(b) => {
+                  // Potential result
+                  val propsMap = MutableMap[Metric, MetricValue]()
+                  documentMapping.foreach { case (metric, key) => propsMap.update(metric, asScalaRecursive(xml.selectNodes(key)))}
+
+                  val propsChecked = Try(Parsing.checkProps(propsMap.toMap))
+                  propsChecked match {
+                    case Success(props) => Parsing.extractDocument(props)
+                    case Failure(e) => throw new IllegalArgumentException(s"An error occurred when checking element properties for element $documentMapping: ${e.getMessage}.")
+                  }
+                }
+                case Failure(e) => throw new IllegalArgumentException(s"Invalid searchable criteria in document mapping: ${e.getMessage}")
+              }
+            }
+            case Failure(e) => throw new IllegalArgumentException(s"Invalid document mapping: ${e.getMessage}")
+          }
+
         })
         (documents.filter(_.isVertex), documents.filter(_.isEdge))
       }
