@@ -74,7 +74,7 @@ metric2::$.bar
 metric3::$.baz.baz
 ```
 
-* Xpath - used within sources [website,xml,xmlAPI,xlsx] - [specification](http://www.w3.org/TR/xpath20/)
+* Xpath - used within sources [website,xml,xmlAPI] - [specification](http://www.w3.org/TR/xpath20/)
 
 Example of XPath
 ```
