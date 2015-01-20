@@ -41,7 +41,7 @@ case class Edge(props: Map[String, JValue]) extends Document {
   override def isEdge: Boolean = true
 }
 
-private[dataimport] object Parsing {
+private[calabs] object Parsing {
 
   type Chunk = List[String]
 
