@@ -11,7 +11,6 @@ import org.json4s.DefaultFormats
 import scala.io.{BufferedSource, Source}
 import scala.util.{Failure, Success, Try}
 import scala.collection.mutable.{Map => MutableMap}
-import TypeAliases._
 import scala.collection.JavaConverters._
 import org.json4s.Xml.{toJson}
 
@@ -23,21 +22,6 @@ import scala.xml.XML
  * 20/11/14
  */
 
-object TypeAliases {
-  type DataSource = String
-  type ResourceType = String
-  type Codec = String
-  type Metric = String
-  type MetricPath = String
-  type MetricValue = Any
-  type ConfigKey = String
-  type ConfigValue = Any
-  type HeaderKey = String
-  type HeaderValue = Any
-  type HTTPHeaders = Map[HeaderKey, HeaderValue]
-  type XLSXSheet = String
-}
-
 object ResourceType {
   val WEBSITE = "website"
   val JSON = "json"
@@ -47,8 +31,8 @@ object ResourceType {
   val XLSX = "xlsx"
 }
 
-case class DataResourceConfig(config: Product)
-case class DataResourceMapping(mapping: List[Map[Metric,MetricPath]])
+case class DataResourceConfig(config: Map[String, Any])
+case class DataResourceMapping(mapping: List[Map[String,String]])
 
 trait DataResourceExtractor {
   def extractDocuments: Try[(List[Document], List[Document])]
@@ -61,7 +45,7 @@ sealed trait DataResource {
 }
 
 trait APIConnection {
-  def prepareConnection(dataSource: DataSource, headers: HTTPHeaders): BufferedSource = {
+  def prepareConnection(dataSource: String, headers: Map[String, String]): BufferedSource = {
     val connection = new URL(dataSource).openConnection()
     headers.foreach{ case (k,v) => connection.setRequestProperty(k,v.toString)}
     Source.fromInputStream(connection.getInputStream)
@@ -88,55 +72,57 @@ case class JSONResource(config: DataResourceConfig, mapping: DataResourceMapping
 
   override def extractDocuments: Try[(List[Document], List[Document])] = {
     val c = config.config
-    Try(c match {
-      case (dataSource: DataSource, resourceType: ResourceType) => {
-        val m = mapping.mapping
-        // Load the JSON resource
-        val jsonFile = resourceType match {
-          case ResourceType.JSON => Source.fromFile(dataSource, "utf-8")
-          case _ => throw new IllegalArgumentException(s"Wrong resource type, must be ${ResourceType.JSON} for JSON data resources.")
-        }
-        val jsonInput = jsonFile.mkString
-        val json = parseJson(jsonInput)
-        val documents = m.map(documentMapping => {
-          // Check document mapping types are supported
-          val mapping = Try(Parsing.checkProps(documentMapping))
+    Try{
+      (c.get("source"), c.get("resourceType")) match {
+        case (Some(source: String), Some(resourceType: String)) => {
+          val m = mapping.mapping
+          // Load the JSON resource
+          val jsonFile = resourceType match {
+            case ResourceType.JSON => Source.fromFile(source, "utf-8")
+            case _ => throw new IllegalArgumentException(s"Wrong resource type, must be ${ResourceType.JSON} for JSON data resources.")
+          }
+          val jsonInput = jsonFile.mkString
+          val json = parseJson(jsonInput)
+          val documents = m.map(documentMapping => {
+            // Check document mapping types are supported
+            val mapping = Try(Parsing.checkProps(documentMapping))
 
-          mapping match {
-            case Success(mapping) => {
-              // Check searchable criteria
-              val validSearchableCriteria = Try(Parsing.validSearchableCriteria(mapping))
-              validSearchableCriteria match {
-                case Success(b) => {
-                  // Potential result
-                  val propsMap = MutableMap[Metric, MetricValue]()
-                  documentMapping.foreach {
-                    case (metric, key) => {
-                      val metricRawValue = JsonPath.query(key, json)
-                      val metricValue = metricRawValue match {
-                        case Left(error) => throw new IllegalArgumentException(s"Some error occurred when looking up metric $metric: ${error.reason}.")
-                        case Right(value) => asScalaRecursive(value.next())
+            mapping match {
+              case Success(mapping) => {
+                // Check searchable criteria
+                val validSearchableCriteria = Try(Parsing.validSearchableCriteria(mapping))
+                validSearchableCriteria match {
+                  case Success(b) => {
+                    // Potential result
+                    val propsMap = MutableMap[String, Any]()
+                    documentMapping.foreach {
+                      case (metric, key) => {
+                        val metricRawValue = JsonPath.query(key, json)
+                        val metricValue = metricRawValue match {
+                          case Left(error) => throw new IllegalArgumentException(s"Some error occurred when looking up metric $metric: ${error.reason}.")
+                          case Right(value) => asScalaRecursive(value.next())
+                        }
+                        propsMap.update(metric,metricValue)
                       }
-                      propsMap.update(metric,metricValue)
+                    }
+
+                    val propsChecked = Try(Parsing.checkProps(propsMap.toMap))
+                    propsChecked match {
+                      case Success(props) => Parsing.extractDocument(props)
+                      case Failure(e) => throw new IllegalArgumentException(s"An error occurred when checking element properties for element $documentMapping: ${e.getMessage}.")
                     }
                   }
-
-                  val propsChecked = Try(Parsing.checkProps(propsMap.toMap))
-                  propsChecked match {
-                    case Success(props) => Parsing.extractDocument(props)
-                    case Failure(e) => throw new IllegalArgumentException(s"An error occurred when checking element properties for element $documentMapping: ${e.getMessage}.")
-                  }
+                  case Failure(e) => throw new IllegalArgumentException(s"Invalid searchable criteria in document mapping: ${e.getMessage}")
                 }
-                case Failure(e) => throw new IllegalArgumentException(s"Invalid searchable criteria in document mapping: ${e.getMessage}")
               }
+              case Failure(e) => throw new IllegalArgumentException(s"Invalid document mapping: ${e.getMessage}")
             }
-            case Failure(e) => throw new IllegalArgumentException(s"Invalid document mapping: ${e.getMessage}")
-          }
-        })
-        (documents.filter(_.isVertex), documents.filter(_.isEdge))
+          })
+          (documents.filter(_.isVertex), documents.filter(_.isEdge))
+        }
+        case _ => throw new IllegalArgumentException(s"Wrong number of parameters expected in JSON resource configuration file ('source' and 'resourceType' are required)")
       }
-      case _ => throw new IllegalArgumentException(s"Wrong number of parameters expected in JSON resource configuration file.")
-    })
+    }
   }
 
 }
@@ -147,55 +133,57 @@ case class JSONAPIResource(config: DataResourceConfig, mapping: DataResourceMapp
 
   override def extractDocuments: Try[(List[Document], List[Document])] = {
     val c = config.config
-    Try(c match {
-      case (dataSource: DataSource, resourceType: ResourceType, headers: HTTPHeaders) => {
-        val m = mapping.mapping
-        // Load the JSON resource
-        val jsonFile = resourceType match {
-          case ResourceType.JSON_API => prepareConnection(dataSource, headers)
-          case _ => throw new IllegalArgumentException(s"Wrong resource type, must be ${ResourceType.JSON_API} for JSON API data resources.")
-        }
-        val jsonInput = jsonFile.mkString
-        val json = parseJson(jsonInput)
-        val documents = m.map(documentMapping => {
-          // Check document mapping types are supported
-          val mapping = Try(Parsing.checkProps(documentMapping))
+    Try{
+      (c.get("source"), c.get("resourceType"), c.get("headers")) match {
+        case (Some(source: String), Some(resourceType: String), Some(headers: Map[String, String])) => {
+          val m = mapping.mapping
+          // Load the JSON resource
+          val jsonFile = resourceType match {
+            case ResourceType.JSON_API => prepareConnection(source, headers)
+            case _ => throw new IllegalArgumentException(s"Wrong resource type, must be ${ResourceType.JSON_API} for JSON API data resources.")
+          }
+          val jsonInput = jsonFile.mkString
+          val json = parseJson(jsonInput)
+          val documents = m.map(documentMapping => {
+            // Check document mapping types are supported
+            val mapping = Try(Parsing.checkProps(documentMapping))
 
-          mapping match {
-            case Success(mapping) => {
-              // Check searchable criteria
-              val validSearchableCriteria = Try(Parsing.validSearchableCriteria(mapping))
-              validSearchableCriteria match {
-                case Success(b) => {
-                  // Potential result
-                  val propsMap = MutableMap[Metric, MetricValue]()
-                  documentMapping.foreach {
-                    case (metric, key) => {
-                      val metricRawValue = JsonPath.query(key, json)
-                      val metricValue = metricRawValue match {
-                        case Left(error) => throw new IllegalArgumentException(s"Some error occurred when looking up metric $metric: ${error.reason}.")
-                        case Right(value) => asScalaRecursive(value.next())
+            mapping match {
+              case Success(mapping) => {
+                // Check searchable criteria
+                val validSearchableCriteria = Try(Parsing.validSearchableCriteria(mapping))
+                validSearchableCriteria match {
+                  case Success(b) => {
+                    // Potential result
+                    val propsMap = MutableMap[String, Any]()
+                    documentMapping.foreach {
+                      case (metric, key) => {
+                        val metricRawValue = JsonPath.query(key, json)
+                        val metricValue = metricRawValue match {
+                          case Left(error) => throw new IllegalArgumentException(s"Some error occurred when looking up metric $metric: ${error.reason}.")
+                          case Right(value) => asScalaRecursive(value.next())
+                        }
+                        propsMap.update(metric, metricValue)
                       }
-                      propsMap.update(metric, metricValue)
+                    }
+
+                    val propsChecked = Try(Parsing.checkProps(propsMap.toMap))
+                    propsChecked match {
+                      case Success(props) => Parsing.extractDocument(props)
+                      case Failure(e) => throw new IllegalArgumentException(s"An error occurred when checking element properties for element $documentMapping: ${e.getMessage}.")
                     }
                   }
-
-                  val propsChecked = Try(Parsing.checkProps(propsMap.toMap))
-                  propsChecked match {
-                    case Success(props) => Parsing.extractDocument(props)
-                    case Failure(e) => throw new IllegalArgumentException(s"An error occurred when checking element properties for element $documentMapping: ${e.getMessage}.")
-                  }
+                  case Failure(e) => throw new IllegalArgumentException(s"Invalid searchable criteria in document mapping: ${e.getMessage}")
                 }
-                case Failure(e) => throw new IllegalArgumentException(s"Invalid searchable criteria in document mapping: ${e.getMessage}")
               }
+              case Failure(e) => throw new IllegalArgumentException(s"Invalid document mapping: ${e.getMessage}")
             }
-            case Failure(e) => throw new IllegalArgumentException(s"Invalid document mapping: ${e.getMessage}")
-          }
-        })
-        (documents.filter(_.isVertex), documents.filter(_.isEdge))
+          })
+          (documents.filter(_.isVertex), documents.filter(_.isEdge))
+        }
+        case _ => throw new IllegalArgumentException(s"Wrong number of parameters expected in JSON API resource configuration file ('source' and 'resourceType' are required)")
       }
-      case _ => throw new IllegalArgumentException(s"Wrong number of parameters expected in JSON API resource configuration file.")
-    })
+    }
   }
 
 }
@@ -206,47 +194,49 @@ case class XMLResource(config: DataResourceConfig, mapping: DataResourceMapping)
 
   override def extractDocuments: Try[(List[Document], List[Document])] = {
     val c = config.config
-    Try(c match {
-      case (dataSource: DataSource, resourceType: ResourceType) => {
-        val m = mapping.mapping
-        // Load the XML resource
-        val xmlFile = resourceType match {
-          case ResourceType.XML => Source.fromFile(dataSource, "utf-8")
-          case _ => throw new IllegalArgumentException(s"Wrong resource type, must be ${ResourceType.XML} for XML data resources.")
-        }
-        val xmlInput = xmlFile.mkString
-        val xml = DocumentHelper.parseText(xmlInput)
-        val documents = m.map(documentMapping => {
-          // Check document mapping types are supported
-          val mapping = Try(Parsing.checkProps(documentMapping))
-
-          mapping match {
-            case Success(mapping) => {
-              // Check searchable criteria
-              val validSearchableCriteria = Try(Parsing.validSearchableCriteria(mapping))
-              validSearchableCriteria match {
-                case Success(b) => {
-                  // Potential result
-                  val propsMap = MutableMap[Metric, MetricValue]()
-                  documentMapping.foreach { case (metric, key) => propsMap.update(metric, asScalaRecursive(xml.selectNodes(key)))}
-
-                  val propsChecked = Try(Parsing.checkProps(propsMap.toMap))
-                  propsChecked match {
-                    case Success(props) => Parsing.extractDocument(props)
-                    case Failure(e) => throw new IllegalArgumentException(s"An error occurred when checking element properties for element $documentMapping: ${e.getMessage}.")
-                  }
-                }
-                case Failure(e) => throw new IllegalArgumentException(s"Invalid searchable criteria in document mapping: ${e.getMessage}")
-              }
-            }
-            case Failure(e) => throw new IllegalArgumentException(s"Invalid document mapping: ${e.getMessage}")
+    Try{
+      (c.get("source"), c.get("resourceType")) match {
+        case (Some(source: String), Some(resourceType: String)) => {
+          val m = mapping.mapping
+          // Load the XML resource
+          val xmlFile = resourceType match {
+            case ResourceType.XML => Source.fromFile(source, "utf-8")
+            case _ => throw new IllegalArgumentException(s"Wrong resource type, must be ${ResourceType.XML} for XML data resources.")
           }
+          val xmlInput = xmlFile.mkString
+          val xml = DocumentHelper.parseText(xmlInput)
+          val documents = m.map(documentMapping => {
+            // Check document mapping types are supported
+            val mapping = Try(Parsing.checkProps(documentMapping))
 
-        })
-        (documents.filter(_.isVertex), documents.filter(_.isEdge))
+            mapping match {
+              case Success(mapping) => {
+                // Check searchable criteria
+                val validSearchableCriteria = Try(Parsing.validSearchableCriteria(mapping))
+                validSearchableCriteria match {
+                  case Success(b) => {
+                    // Potential result
+                    val propsMap = MutableMap[String, Any]()
+                    documentMapping.foreach { case (metric, key) => propsMap.update(metric, asScalaRecursive(xml.selectNodes(key)))}
+
+                    val propsChecked = Try(Parsing.checkProps(propsMap.toMap))
+                    propsChecked match {
+                      case Success(props) => Parsing.extractDocument(props)
+                      case Failure(e) => throw new IllegalArgumentException(s"An error occurred when checking element properties for element $documentMapping: ${e.getMessage}.")
+                    }
+                  }
+                  case Failure(e) => throw new IllegalArgumentException(s"Invalid searchable criteria in document mapping: ${e.getMessage}")
+                }
+              }
+              case Failure(e) => throw new IllegalArgumentException(s"Invalid document mapping: ${e.getMessage}")
+            }
+
+          })
+          (documents.filter(_.isVertex), documents.filter(_.isEdge))
+        }
+        case _ => throw new IllegalArgumentException(s"Wrong number of parameters expected in XML resource configuration file ('source' and 'resourceType' are required)")
       }
-      case _ => throw new IllegalArgumentException(s"Wrong number of parameters expected in XML resource configuration file.")
-    })
+    }
   }
 
 }
@@ -258,48 +248,50 @@ case class XMLAPIResource(config: DataResourceConfig, mapping: DataResourceMappi
   override def extractDocuments: Try[(List[Document], List[Document])] = {
     val c = config.config
     // Potential result
-    val mutableMap = MutableMap[Metric, MetricValue]()
-    Try(c match {
-      case (dataSource: DataSource, resourceType: ResourceType, headers: HTTPHeaders) => {
-        val m = mapping.mapping
-        // Load the XML resource
-        val xmlFile = resourceType match {
-          case ResourceType.XML_API => prepareConnection(dataSource, headers)
-          case _ => throw new IllegalArgumentException(s"Wrong resource type, must be ${ResourceType.XML_API} for XML data resources.")
-        }
-        val xmlInput = xmlFile.mkString
-        val xml = DocumentHelper.parseText(xmlInput)
-        val documents = m.map(documentMapping => {
-          // Check document mapping types are supported
-          val mapping = Try(Parsing.checkProps(documentMapping))
-
-          mapping match {
-            case Success(mapping) => {
-              // Check searchable criteria
-              val validSearchableCriteria = Try(Parsing.validSearchableCriteria(mapping))
-              validSearchableCriteria match {
-                case Success(b) => {
-                  // Potential result
-                  val propsMap = MutableMap[Metric, MetricValue]()
-                  documentMapping.foreach { case (metric, key) => propsMap.update(metric, asScalaRecursive(xml.selectNodes(key)))}
-
-                  val propsChecked = Try(Parsing.checkProps(propsMap.toMap))
-                  propsChecked match {
-                    case Success(props) => Parsing.extractDocument(props)
-                    case Failure(e) => throw new IllegalArgumentException(s"An error occurred when checking element properties for element $documentMapping: ${e.getMessage}.")
-                  }
-                }
-                case Failure(e) => throw new IllegalArgumentException(s"Invalid searchable criteria in document mapping: ${e.getMessage}")
-              }
-            }
-            case Failure(e) => throw new IllegalArgumentException(s"Invalid document mapping: ${e.getMessage}")
+    val mutableMap = MutableMap[String, Any]()
+    Try{
+      (c.get("source"), c.get("resourceType"), c.get("headers")) match {
+        case (Some(source: String), Some(resourceType: String), Some(headers: Map[String, String])) => {
+          val m = mapping.mapping
+          // Load the XML resource
+          val xmlFile = resourceType match {
+            case ResourceType.XML_API => prepareConnection(source, headers)
+            case _ => throw new IllegalArgumentException(s"Wrong resource type, must be ${ResourceType.XML_API} for XML data resources.")
           }
+          val xmlInput = xmlFile.mkString
+          val xml = DocumentHelper.parseText(xmlInput)
+          val documents = m.map(documentMapping => {
+            // Check document mapping types are supported
+            val mapping = Try(Parsing.checkProps(documentMapping))
 
-        })
-        (documents.filter(_.isVertex), documents.filter(_.isEdge))
+            mapping match {
+              case Success(mapping) => {
+                // Check searchable criteria
+                val validSearchableCriteria = Try(Parsing.validSearchableCriteria(mapping))
+                validSearchableCriteria match {
+                  case Success(b) => {
+                    // Potential result
+                    val propsMap = MutableMap[String, Any]()
+                    documentMapping.foreach { case (metric, key) => propsMap.update(metric, asScalaRecursive(xml.selectNodes(key)))}
+
+                    val propsChecked = Try(Parsing.checkProps(propsMap.toMap))
+                    propsChecked match {
+                      case Success(props) => Parsing.extractDocument(props)
+                      case Failure(e) => throw new IllegalArgumentException(s"An error occurred when checking element properties for element $documentMapping: ${e.getMessage}.")
+                    }
+                  }
+                  case Failure(e) => throw new IllegalArgumentException(s"Invalid searchable criteria in document mapping: ${e.getMessage}")
+                }
+              }
+              case Failure(e) => throw new IllegalArgumentException(s"Invalid document mapping: ${e.getMessage}")
+            }
+
+          })
+          (documents.filter(_.isVertex), documents.filter(_.isEdge))
+        }
+        case _ => throw new IllegalArgumentException(s"Wrong number of parameters expected in XML API resource configuration file ('source' and 'resourceType' are required)")
       }
-      case _ => throw new IllegalArgumentException(s"Wrong number of parameters expected in XML API resource configuration file.")
-    })
+    }
   }
 
 }

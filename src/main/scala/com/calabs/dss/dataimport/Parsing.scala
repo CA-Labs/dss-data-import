@@ -1,6 +1,5 @@
 package com.calabs.dss.dataimport
 
-import com.calabs.dss.dataimport.TypeAliases._
 import org.json4s.JsonAST._
 
 import scala.annotation.tailrec
@@ -83,8 +82,8 @@ private[calabs] object Parsing {
    * @param lines The configuration input (raw format, [[List]] of [[String]]
    * @return A map of configuration keys and values.
    */
-  def extractConfig(lines: List[String]) : Map[ConfigKey, ConfigValue] = {
-    def parseLine(line: String) : (ConfigKey, ConfigValue) = {
+  def extractConfig(lines: List[String]) : Map[String, Any] = {
+    def parseLine(line: String) : (String, String) = {
       val params = line.split(Tags.KEY_VALUE_SEPARATOR)
       if(params.length != 2) throw new IllegalArgumentException(s"Wrong number of parameters for line $line")
       else (params.head, params.tail.head)
@@ -109,7 +108,7 @@ private[calabs] object Parsing {
    * @param lines The mapping input (raw format, [[List]] of [[String]]).
    * @return A pair of vertices and edges mappings.
    */
-  def extractMappings(lines: List[String]) : (List[Map[Metric, MetricPath]]) = {
+  def extractMappings(lines: List[String]) : (List[Map[String, String]]) = {
 
     /**
      * Extracts a chunk of lines (it assumes every chunk of data is separated by a blank line).

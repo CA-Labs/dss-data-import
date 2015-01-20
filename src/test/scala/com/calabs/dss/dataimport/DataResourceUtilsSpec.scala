@@ -1,6 +1,6 @@
 package com.calabs.dss.dataimport
 
-import org.scalatest.FunSpec
+import org.scalatest.{TryValues, FunSpec}
 
 import scala.io.Source
 
@@ -9,10 +9,9 @@ import scala.io.Source
  * <jordi.aranda@bsc.es>
  * 4/12/14
  */
-class DataResourceUtilsSpec extends FunSpec {
+class DataResourceUtilsSpec extends FunSpec with TryValues {
 
   import Config._
-  import TypeAliases._
 
   describe("Data Resource Utils") {
 
@@ -25,19 +24,12 @@ class DataResourceUtilsSpec extends FunSpec {
       val incorrectConfig = Source.fromFile(getClass.getResource("/json/file/example-file.ko.config").getPath).getLines.toList
       try {
         jsonResourceConfig.check(Parsing.extractConfig((correctConfig)))
-        val config = jsonResourceConfig.load(getClass.getResource("/json/file/example-file.ok.config").getPath)
-        assert(config.isSuccess)
-        config.get match {
-          case (source: DataSource, resourceType: ResourceType) => {
-            assert(source == "example-file.json")
-            assert(resourceType == ResourceType.JSON)
-          }
-          case _ => fail("Wrong number of configuration parameters: only source and resourceType are expected for JSON resources.")
-        }
+        val config = jsonResourceConfig.load(getClass.getResource("/json/file/example-file.ok.config").getPath).success.value
+        assert(config.get("source") == Some("example-file.json"))
       } catch {
         case e: Throwable => fail(e.getMessage)
       }
-      intercept[IllegalArgumentException] {
+      intercept[NoSuchElementException] {
         jsonResourceConfig.check(Parsing.extractConfig(incorrectConfig))
       }
     }
@@ -47,20 +39,13 @@ class DataResourceUtilsSpec extends FunSpec {
       val incorrectConfig = Source.fromFile(getClass.getResource("/json/api/example-api.ko.config").getPath).getLines.toList
       try {
         jsonApiResourceConfig.check(Parsing.extractConfig(correctConfig))
-        val config = jsonApiResourceConfig.load(getClass.getResource("/json/api/example-api.ok.config").getPath)
-        assert(config.isSuccess)
-        config.get match {
-          case (source: DataSource, resourceType: ResourceType, headers: HTTPHeaders) => {
-            assert(source == "https://api.github.com/users/jarandaf")
-            assert(resourceType == ResourceType.JSON_API)
-            assert(headers.get("accept") == Some("*"))
-          }
-          case _ => fail("Wrong number of configuration parameters: only source, resourceType and headers are expected for JSON API resources.")
-        }
+        val config = jsonApiResourceConfig.load(getClass.getResource("/json/api/example-api.ok.config").getPath).success.value
+        assert(config.get("source") == Some("https://api.github.com/users/jarandaf"))
+        assert(config.get("headers") == Some(Map[String,Any]("accept" -> "*")))
       } catch {
         case e: Throwable => fail(e.getMessage)
       }
-      intercept[IllegalArgumentException] {
+      intercept[NoSuchElementException] {
         jsonApiResourceConfig.check(Parsing.extractConfig((incorrectConfig)))
       }
     }
@@ -74,18 +59,12 @@ class DataResourceUtilsSpec extends FunSpec {
       val incorrectConfig = Source.fromFile(getClass.getResource("/xml/file/example-file.ko.config").getPath).getLines.toList
       try {
         xmlResourceConfig.check(Parsing.extractConfig((correctConfig)))
-        val config = xmlResourceConfig.load(getClass.getResource("/xml/file/example-file.ok.config").getPath)
-        assert(config.isSuccess)
-        config.get match {
-          case (source: DataSource, resourceType: ResourceType) => {
-            assert(source == "example-file.xml")
-            assert(resourceType == ResourceType.XML)
-          }
-        }
+        val config = xmlResourceConfig.load(getClass.getResource("/xml/file/example-file.ok.config").getPath).success.value
+        assert(config.get("source") == Some("example-file.xml"))
       } catch {
         case e: Throwable => fail(e.getMessage)
       }
-      intercept[IllegalArgumentException] {
+      intercept[NoSuchElementException] {
         xmlResourceConfig.check(Parsing.extractConfig((incorrectConfig)))
       }
     }
@@ -95,19 +74,13 @@ class DataResourceUtilsSpec extends FunSpec {
       val incorrectConfig = Source.fromFile(getClass.getResource("/xml/api/example-api.ko.config").getPath).getLines.toList
       try {
         xmlApiResourceConfig.check(Parsing.extractConfig(correctConfig))
-        val config = xmlApiResourceConfig.load(getClass.getResource("/xml/api/example-api.ok.config").getPath)
-        assert(config.isSuccess)
-        config.get match {
-          case (source: DataSource, resourceType: ResourceType, headers: HTTPHeaders) => {
-            assert(source == "http://api.openweathermap.org/data/2.5/weather?q=London&mode=xml")
-            assert(resourceType == ResourceType.XML_API)
-            assert(headers.get("accept") == Some("*"))
-          }
-        }
+        val config = xmlApiResourceConfig.load(getClass.getResource("/xml/api/example-api.ok.config").getPath).success.value
+        assert(config.get("source") == Some("http://api.openweathermap.org/data/2.5/weather?q=London&mode=xml"))
+        assert(config.get("headers") == Some(Map[String,Any]("accept" -> "*")))
       } catch {
         case e: Throwable => fail(e.getMessage)
       }
-      intercept[IllegalArgumentException] {
+      intercept[NoSuchElementException] {
         xmlApiResourceConfig.check(Parsing.extractConfig(incorrectConfig))
       }
     }

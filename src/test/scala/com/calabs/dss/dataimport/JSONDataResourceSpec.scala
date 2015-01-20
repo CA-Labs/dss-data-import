@@ -28,7 +28,7 @@ class JSONDataResourceSpec extends FunSpec {
         case (Success(c), Success(m)) => {
           // How to test files that are loaded from a path property read from a file? This will be different between machines!
           // Overwrite data source path by now with one existing relative to resources folder
-          val newConfig = DataResourceConfig(getClass.getResource("/json/file/example-file.json").getPath, c.productElement(1))
+          val newConfig = DataResourceConfig(Map[String,Any](("source" -> getClass.getResource("/json/file/example-file.json").getPath), ("resourceType" -> ResourceType.JSON)))
           val jsonResource = JSONResource(newConfig, DataResourceMapping(m))
           val documents = jsonResource.extractDocuments
           documents match {
