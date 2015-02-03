@@ -52,6 +52,7 @@ private[calabs] object Parsing {
     val SEARCHABLE_CRITERIA = "__"
     val FROM = SEARCHABLE_CRITERIA + "from"
     val TO = SEARCHABLE_CRITERIA + "to"
+    val LABEL = "label"
   }
 
   /**

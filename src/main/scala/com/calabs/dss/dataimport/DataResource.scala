@@ -100,7 +100,7 @@ case class JSONResource(config: DataResourceConfig, mapping: DataResourceMapping
                         val metricRawValue = JsonPath.query(key, json)
                         val metricValue = metricRawValue match {
                           case Left(error) => throw new IllegalArgumentException(s"Some error occurred when looking up metric $metric: ${error.reason}.")
-                          case Right(value) => asScalaRecursive(value.next())
+                          case Right(value) => asScalaRecursive(value.toList)
                         }
                         propsMap.update(metric,metricValue)
                       }
@@ -161,7 +161,7 @@ case class JSONAPIResource(config: DataResourceConfig, mapping: DataResourceMapp
                         val metricRawValue = JsonPath.query(key, json)
                         val metricValue = metricRawValue match {
                           case Left(error) => throw new IllegalArgumentException(s"Some error occurred when looking up metric $metric: ${error.reason}.")
-                          case Right(value) => asScalaRecursive(value.next())
+                          case Right(value) => asScalaRecursive(value.toList)
                         }
                         propsMap.update(metric, metricValue)
                       }
