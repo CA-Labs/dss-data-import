@@ -3,7 +3,7 @@ comment::$[0].comment
 currency::$[0].currency
 
 firewall::$[0].firewall
-__from::metricName=>"firewal"
+__from::metricName=>"firewall"
 __to::serviceName=>serviceName
 
 resizing::$[0].resizing
