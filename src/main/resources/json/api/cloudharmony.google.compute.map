@@ -1,4 +1,4 @@
-companyName::$[0].companyName
+__companyName::$[0].companyName
 website::$[0].website
 
 serviceName::$[0].computeServiceId
