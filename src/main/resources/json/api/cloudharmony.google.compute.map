@@ -1,13 +1,10 @@
-__companyName::$[0].companyName
-website::$[0].website
-
 serviceName::$[0].computeServiceId
 comment::$[0].comment
 currency::$[0].currency
 
 firewall::$[0].firewall
-__from::companyName
-__to::serviceName
+__from::metricName=>"firewal"
+__to::serviceName=>serviceName
 
 resizing::$[0].resizing
 __from::
