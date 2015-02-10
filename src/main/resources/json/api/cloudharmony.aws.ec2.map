@@ -9,3 +9,4 @@ regions::$.regions[5].regions[0]
 __from::import_id=>->aws<-
 __to::import_id=>$.serviceId
 name::$.name
+label::->HAS_SERVICE<-
