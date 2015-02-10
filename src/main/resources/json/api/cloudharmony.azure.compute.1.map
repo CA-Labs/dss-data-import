@@ -1,0 +1,3 @@
+beta::$.beta
+regions::$.regions[3].regions
+hasBandwidthPricing::$.hasBandwidthPricing

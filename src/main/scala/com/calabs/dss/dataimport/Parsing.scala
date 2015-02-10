@@ -5,7 +5,7 @@ import org.json4s.JsonAST._
 import scala.annotation.tailrec
 import scala.collection.MapLike
 import scala.collection.mutable.{Map => MutableMap}
-import scala.util.{Failure, Success}
+import scala.util.{Try, Failure, Success}
 
 /**
  * Created by Jordi Aranda
@@ -55,6 +55,27 @@ private[calabs] object Parsing {
     val LABEL = "label"
     val ID = "id"
     val IMPORT_ID = "import_" + ID
+    val RAW_VALUE_START = "->"
+    val RAW_VALUE_END = "<-"
+  }
+
+  /**
+   * Determines whether a mapping value is already a value and not a (JSON/X)path. This is
+   * mainly used to allow hard-coding values for certain property keys so that data
+   * does not need to be extracted.
+   * @param mappingValue A potential mapping path or raw value.
+   * @return
+   */
+  def isRawValue(mappingValue: String) : Boolean = mappingValue.startsWith(Tags.RAW_VALUE_START) && mappingValue.endsWith(Tags.RAW_VALUE_END)
+
+  /**
+   * Tries to convert a raw value to Int, otherwise leaves it as it is, String.
+   * @param mappingValue A raw value.
+   * @return
+   */
+  def getRawValue(mappingValue: String) : Any = Try(mappingValue.toInt) match {
+    case Success(value) => value
+    case Failure(e) => mappingValue
   }
 
   /**
