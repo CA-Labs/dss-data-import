@@ -53,6 +53,8 @@ private[calabs] object Parsing {
     val FROM = SEARCHABLE_CRITERIA + "from"
     val TO = SEARCHABLE_CRITERIA + "to"
     val LABEL = "label"
+    val ID = "id"
+    val IMPORT_ID = "import_" + ID
   }
 
   /**
