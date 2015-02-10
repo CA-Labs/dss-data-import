@@ -1,0 +1,11 @@
+import_id::$.serviceId
+providerId::$.providerId
+name::$.name
+shortName::$.shortName
+website::$.website
+beta::$.beta
+regions::$.regions[5].regions[0]
+
+__from::import_id=>->aws<-
+__to::import_id=>$.serviceId
+name::$.name

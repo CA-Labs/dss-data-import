@@ -1,4 +1,8 @@
+import_id::$.providerId
 countries::$.countries
 description::$.description
 SP500::$.fortune500Rank
+name::$.name
+shortName::$.shortName
+serviceIds::$.serviceIds
 website::$.website

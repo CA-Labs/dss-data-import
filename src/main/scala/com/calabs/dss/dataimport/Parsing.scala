@@ -73,9 +73,12 @@ private[calabs] object Parsing {
    * @param mappingValue A raw value.
    * @return
    */
-  def getRawValue(mappingValue: String) : Any = Try(mappingValue.toInt) match {
-    case Success(value) => value
-    case Failure(e) => mappingValue
+  def getRawValue(mappingValue: String) : Any = {
+    val value = mappingValue.replace(Tags.RAW_VALUE_START, "").replace(Tags.RAW_VALUE_END, "")
+    Try(value.toInt) match {
+      case Success(value) => value
+      case Failure(e) => value
+    }
   }
 
   /**
@@ -181,7 +184,7 @@ private[calabs] object Parsing {
    */
   def checkProps(props: Map[String, Any]) : Map[String, JValue] = {
     def checkProp(prop: Any) : JValue = prop match {
-      case string: String => JString(string)
+      case string: String => if (string.split(Tags.MAP_KEY_VALUE_SEPARATOR).length > 1) checkProp(stringToMap(string)) else JString(string)
       case int: Int => JInt(int)
       case double: Double => JDouble(double)
       case boolean: Boolean => JBool(boolean)

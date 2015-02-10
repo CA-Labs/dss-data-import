@@ -7,6 +7,7 @@ import io.gatling.jsonpath.JsonPath
 import org.apache.poi.ss.usermodel.{Cell, Sheet, WorkbookFactory}
 import org.dom4j.{DocumentHelper}
 import org.json4s.DefaultFormats
+import org.json4s.JsonAST.{JObject, JString}
 
 import scala.io.{BufferedSource, Source}
 import scala.util.{Failure, Success, Try}
@@ -95,17 +96,43 @@ case class JSONResource(config: DataResourceConfig, mapping: DataResourceMapping
                   case Success(b) => {
                     // Potential result
                     val propsMap = MutableMap[String, Any]()
-                    documentMapping.foreach {
+                    mapping.foreach {
                       case (metric, key) => {
-                        if (Parsing.isRawValue(key)) {
-                          propsMap.update(metric, asScalaRecursive(Parsing.getRawValue(key)))
-                        } else {
-                          val metricRawValue = JsonPath.query(key, json)
-                          val metricValue = metricRawValue match {
-                            case Left(error) => throw new IllegalArgumentException(s"Some error occurred when looking up metric $metric: ${error.reason}.")
-                            case Right(value) => asScalaRecursive(value.toList)
+                        key match {
+                          case JString(s) => {
+                            if (Parsing.isRawValue(s)) {
+                              propsMap.update(metric, Parsing.getRawValue(s))
+                            } else {
+                              val metricRawValue = JsonPath.query(s, json)
+                              val metricValue = metricRawValue match {
+                                case Left(error) => throw new IllegalArgumentException(s"Some error occurred when looking up metric $metric: ${error.reason}.")
+                                case Right(value) => asScalaRecursive(value.toList)
+                              }
+                              propsMap.update(metric, metricValue)
+                            }
                           }
-                          propsMap.update(metric,metricValue)
+                          case JObject(o) => {
+                            val otherPropsMap = MutableMap[String, Any]()
+                            o.foreach{ case(field, value) => {
+                              value match {
+                                case JString(s) => {
+                                  if (Parsing.isRawValue(s)) {
+                                    otherPropsMap.update(field, Parsing.getRawValue(s))
+                                  } else {
+                                    val metricRawValue = JsonPath.query(s, json)
+                                    val metricValue = metricRawValue match {
+                                      case Left(error) => throw new IllegalArgumentException(s"Some error occurred when looking up metric $metric: ${error.reason}.")
+                                      case Right(value) => asScalaRecursive(value.toList)
+                                    }
+                                    otherPropsMap.update(field, metricValue)
+                                  }
+                                }
+                                case _ => throw new IllegalArgumentException(s"Unexpected type in metric ($metric, $key)")
+                              }
+                              propsMap.update(metric, otherPropsMap)
+                            }}
+                          }
+                          case _ => throw new IllegalArgumentException(s"Unexpected type in metric ($metric, $key)")
                         }
                       }
                     }
@@ -160,17 +187,43 @@ case class JSONAPIResource(config: DataResourceConfig, mapping: DataResourceMapp
                   case Success(b) => {
                     // Potential result
                     val propsMap = MutableMap[String, Any]()
-                    documentMapping.foreach {
+                    mapping.foreach {
                       case (metric, key) => {
-                        if (Parsing.isRawValue(key)) {
-                          propsMap.update(metric, asScalaRecursive(Parsing.getRawValue(key)))
-                        } else {
-                          val metricRawValue = JsonPath.query(key, json)
-                          val metricValue = metricRawValue match {
-                            case Left(error) => throw new IllegalArgumentException(s"Some error occurred when looking up metric $metric: ${error.reason}.")
-                            case Right(value) => asScalaRecursive(value.toList)
+                        key match {
+                          case JString(s) => {
+                            if (Parsing.isRawValue(s)) {
+                              propsMap.update(metric, Parsing.getRawValue(s))
+                            } else {
+                              val metricRawValue = JsonPath.query(s, json)
+                              val metricValue = metricRawValue match {
+                                case Left(error) => throw new IllegalArgumentException(s"Some error occurred when looking up metric $metric: ${error.reason}.")
+                                case Right(value) => asScalaRecursive(value.toList)
+                              }
+                              propsMap.update(metric, metricValue)
+                            }
                           }
-                          propsMap.update(metric, metricValue)
+                          case JObject(o) => {
+                            val otherPropsMap = MutableMap[String, Any]()
+                            o.foreach{ case(field, value) => {
+                              value match {
+                                case JString(s) => {
+                                  if (Parsing.isRawValue(s)) {
+                                    otherPropsMap.update(field, Parsing.getRawValue(s))
+                                  } else {
+                                    val metricRawValue = JsonPath.query(s, json)
+                                    val metricValue = metricRawValue match {
+                                      case Left(error) => throw new IllegalArgumentException(s"Some error occurred when looking up metric $metric: ${error.reason}.")
+                                      case Right(value) => asScalaRecursive(value.toList)
+                                    }
+                                    otherPropsMap.update(field, metricValue)
+                                  }
+                                }
+                                case _ => throw new IllegalArgumentException(s"Unexpected type in metric ($metric, $key)")
+                              }
+                              propsMap.update(metric, otherPropsMap)
+                            }}
+                          }
+                          case _ => throw new IllegalArgumentException(s"Unexpected type in metric ($metric, $key)")
                         }
                       }
                     }
@@ -225,13 +278,36 @@ case class XMLResource(config: DataResourceConfig, mapping: DataResourceMapping)
                   case Success(b) => {
                     // Potential result
                     val propsMap = MutableMap[String, Any]()
-                    documentMapping.foreach { case (metric, key) => {
-                      if (Parsing.isRawValue(key)) {
-                        propsMap.update(metric, asScalaRecursive(Parsing.getRawValue(key)))
-                      } else {
-                        propsMap.update(metric, asScalaRecursive(xml.selectNodes(key)))
+                    mapping.foreach {
+                      case (metric, key) => {
+                        key match {
+                          case JString(s) => {
+                            if (Parsing.isRawValue(s)) {
+                              propsMap.update(metric, asScalaRecursive(Parsing.getRawValue(s)))
+                            } else {
+                              propsMap.update(metric, asScalaRecursive(xml.selectNodes(s)))
+                            }
+                          }
+                          case JObject(o) => {
+                            val otherPropsMap = MutableMap[String, Any]()
+                            o.foreach{ case(field, value) => {
+                              value match {
+                                case JString(s) => {
+                                  if (Parsing.isRawValue(s)) {
+                                    propsMap.update(metric, asScalaRecursive(Parsing.getRawValue(s)))
+                                  } else {
+                                    propsMap.update(metric, asScalaRecursive(xml.selectNodes(s)))
+                                  }
+                                }
+                                case _ => throw new IllegalArgumentException(s"Unexpected type in metric ($metric, $key)")
+                              }
+                              propsMap.update(metric, otherPropsMap)
+                            }}
+                          }
+                          case _ => throw new IllegalArgumentException(s"Unexpected type in metric ($metric, $key)")
+                        }
                       }
-                    }}
+                    }
 
                     val propsChecked = Try(Parsing.checkProps(propsMap.toMap))
                     propsChecked match {
@@ -286,13 +362,36 @@ case class XMLAPIResource(config: DataResourceConfig, mapping: DataResourceMappi
                   case Success(b) => {
                     // Potential result
                     val propsMap = MutableMap[String, Any]()
-                    documentMapping.foreach { case (metric, key) => {
-                      if (Parsing.isRawValue(key)) {
-                        propsMap.update(metric, asScalaRecursive(Parsing.getRawValue(key)))
-                      } else {
-                        propsMap.update(metric, asScalaRecursive(xml.selectNodes(key)))
+                    mapping.foreach {
+                      case (metric, key) => {
+                        key match {
+                          case JString(s) => {
+                            if (Parsing.isRawValue(s)) {
+                              propsMap.update(metric, asScalaRecursive(Parsing.getRawValue(s)))
+                            } else {
+                              propsMap.update(metric, asScalaRecursive(xml.selectNodes(s)))
+                            }
+                          }
+                          case JObject(o) => {
+                            val otherPropsMap = MutableMap[String, Any]()
+                            o.foreach{ case(field, value) => {
+                              value match {
+                                case JString(s) => {
+                                  if (Parsing.isRawValue(s)) {
+                                    propsMap.update(metric, asScalaRecursive(Parsing.getRawValue(s)))
+                                  } else {
+                                    propsMap.update(metric, asScalaRecursive(xml.selectNodes(s)))
+                                  }
+                                }
+                                case _ => throw new IllegalArgumentException(s"Unexpected type in metric ($metric, $key)")
+                              }
+                              propsMap.update(metric, otherPropsMap)
+                            }}
+                          }
+                          case _ => throw new IllegalArgumentException(s"Unexpected type in metric ($metric, $key)")
+                        }
                       }
-                    }}
+                    }
 
                     val propsChecked = Try(Parsing.checkProps(propsMap.toMap))
                     propsChecked match {
