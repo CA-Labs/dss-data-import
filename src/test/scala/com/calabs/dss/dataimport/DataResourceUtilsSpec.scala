@@ -89,26 +89,21 @@ class DataResourceUtilsSpec extends FunSpec with TryValues {
       ************************************** XLSX ************************************
       ********************************************************************************/
 
-    ignore("should correctly parse and load XLSX resource config files"){
-//      val correctConfig = Source.fromFile(getClass.getResource("/xlsx/example-xlsx.ok.config").getPath).getLines
-//      val incorrectConfig = Source.fromFile(getClass.getResource("/xlsx/example-xlsx.ko.config").getPath).getLines
-//      try {
-//        xlsxResourceConfig.check(parseConfigLines(correctConfig))
-//        val config = xlsxResourceConfig.load(getClass.getResource("/xlsx/example-xlsx.ok.config").getPath)
-//        assert(config.isSuccess)
-//        config.get match {
-//          case (source: DataSource, resourceType: ResourceType, sheet: XLSXSheet) => {
-//            assert(source == "example.xlsx")
-//            assert(resourceType == ResourceType.XLSX)
-//            assert(sheet == "test")
-//          }
-//        }
-//      } catch {
-//        case e: Throwable => fail(e.getMessage)
-//      }
-//      intercept[IllegalArgumentException] {
-//        xlsxResourceConfig.check(parseConfigLines(incorrectConfig))
-//      }
+    it("should correctly parse and load XLSX resource config files"){
+      val correctConfig = Source.fromFile(getClass.getResource("/xlsx/example-xlsx.ok.config").getPath).getLines.toList
+      val incorrectConfig = Source.fromFile(getClass.getResource("/xlsx/example-xlsx.ko.config").getPath).getLines.toList
+      try {
+        xlsxResourceConfig.check(Parsing.extractConfig(correctConfig))
+        val config = xlsxResourceConfig.load(getClass.getResource("/xlsx/example-xlsx.ok.config").getPath).success.value
+        assert(config.get("source") == Some("example.xlsx"))
+        assert(config.get("resourceType") == Some(ResourceType.XLSX))
+        assert(config.get("sheet") == Some("test"))
+      } catch {
+        case e: Throwable => fail(e.getMessage)
+      }
+      intercept[NoSuchElementException] {
+        xlsxResourceConfig.check(Parsing.extractConfig(incorrectConfig))
+      }
     }
 
   }
