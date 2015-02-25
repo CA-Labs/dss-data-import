@@ -1,0 +1,4 @@
+website::$.data.homepage_url
+name::$.data.name
+description::$.data.description
+founded_on::$.data.founded_on

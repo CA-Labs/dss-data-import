@@ -1,12 +1,16 @@
 package com.calabs.dss.dataimport
 
+import java.io.File
 import java.net.URL
 
+import com.calabs.dss.dataimport.Implicits._
+import com.calabs.dss.dataimport.Parsing.Tags
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.gatling.jsonpath.JsonPath
 import org.apache.poi.ss.usermodel.{Cell, Sheet, WorkbookFactory}
 import org.dom4j.{DocumentHelper}
 import org.json4s.DefaultFormats
+import org.json4s.JsonAST.{JObject, JString}
 
 import scala.io.{BufferedSource, Source}
 import scala.util.{Failure, Success, Try}
@@ -59,12 +63,12 @@ trait JSONResourceBase extends DataResource with DataResourceExtractor {
 
 trait XMLResourceBase extends DataResource with DataResourceExtractor
 
-//trait XLSXResourceBase extends DataResource with DataResourceExtractor {
-//  val truthyValues = List("X", "x", "Y", "y", "yes")
-//  val falsyValues = List("N", "n", "no")
-//
-//  def openSheet(path: String, sheet: XLSXSheet) : Sheet = WorkbookFactory.create(new File(path)).getSheet(sheet)
-//}
+trait XLSXResourceBase extends DataResource with DataResourceExtractor {
+  val truthyValues = List("X", "x", "Y", "y", "yes")
+  val falsyValues = List("N", "n", "no")
+
+  def openSheet(path: String, sheet: String) : Sheet = WorkbookFactory.create(new File(path)).getSheet(sheet)
+}
 
 case class JSONResource(config: DataResourceConfig, mapping: DataResourceMapping) extends JSONResourceBase {
 
@@ -95,14 +99,44 @@ case class JSONResource(config: DataResourceConfig, mapping: DataResourceMapping
                   case Success(b) => {
                     // Potential result
                     val propsMap = MutableMap[String, Any]()
-                    documentMapping.foreach {
+                    mapping.foreach {
                       case (metric, key) => {
-                        val metricRawValue = JsonPath.query(key, json)
-                        val metricValue = metricRawValue match {
-                          case Left(error) => throw new IllegalArgumentException(s"Some error occurred when looking up metric $metric: ${error.reason}.")
-                          case Right(value) => asScalaRecursive(value.next())
+                        key match {
+                          case JString(s) => {
+                            if (Parsing.isRawValue(s)) {
+                              propsMap.update(metric, Parsing.getRawValue(s))
+                            } else {
+                              val metricRawValue = JsonPath.query(s, json)
+                              val metricValue = metricRawValue match {
+                                case Left(error) => throw new IllegalArgumentException(s"Some error occurred when looking up metric $metric: ${error.reason}.")
+                                case Right(value) => asScalaRecursive(value.toList)
+                              }
+                              propsMap.update(metric, metricValue)
+                            }
+                          }
+                          case JObject(o) => {
+                            val otherPropsMap = MutableMap[String, Any]()
+                            o.foreach{ case(field, value) => {
+                              value match {
+                                case JString(s) => {
+                                  if (Parsing.isRawValue(s)) {
+                                    otherPropsMap.update(field, Parsing.getRawValue(s))
+                                  } else {
+                                    val metricRawValue = JsonPath.query(s, json)
+                                    val metricValue = metricRawValue match {
+                                      case Left(error) => throw new IllegalArgumentException(s"Some error occurred when looking up metric $metric: ${error.reason}.")
+                                      case Right(value) => asScalaRecursive(value.toList)
+                                    }
+                                    otherPropsMap.update(field, metricValue)
+                                  }
+                                }
+                                case _ => throw new IllegalArgumentException(s"Unexpected type in metric ($metric, $key)")
+                              }
+                              propsMap.update(metric, otherPropsMap)
+                            }}
+                          }
+                          case _ => throw new IllegalArgumentException(s"Unexpected type in metric ($metric, $key)")
                         }
-                        propsMap.update(metric,metricValue)
                       }
                     }
 
@@ -156,14 +190,44 @@ case class JSONAPIResource(config: DataResourceConfig, mapping: DataResourceMapp
                   case Success(b) => {
                     // Potential result
                     val propsMap = MutableMap[String, Any]()
-                    documentMapping.foreach {
+                    mapping.foreach {
                       case (metric, key) => {
-                        val metricRawValue = JsonPath.query(key, json)
-                        val metricValue = metricRawValue match {
-                          case Left(error) => throw new IllegalArgumentException(s"Some error occurred when looking up metric $metric: ${error.reason}.")
-                          case Right(value) => asScalaRecursive(value.next())
+                        key match {
+                          case JString(s) => {
+                            if (Parsing.isRawValue(s)) {
+                              propsMap.update(metric, Parsing.getRawValue(s))
+                            } else {
+                              val metricRawValue = JsonPath.query(s, json)
+                              val metricValue = metricRawValue match {
+                                case Left(error) => throw new IllegalArgumentException(s"Some error occurred when looking up metric $metric: ${error.reason}.")
+                                case Right(value) => asScalaRecursive(value.toList)
+                              }
+                              propsMap.update(metric, metricValue)
+                            }
+                          }
+                          case JObject(o) => {
+                            val otherPropsMap = MutableMap[String, Any]()
+                            o.foreach{ case(field, value) => {
+                              value match {
+                                case JString(s) => {
+                                  if (Parsing.isRawValue(s)) {
+                                    otherPropsMap.update(field, Parsing.getRawValue(s))
+                                  } else {
+                                    val metricRawValue = JsonPath.query(s, json)
+                                    val metricValue = metricRawValue match {
+                                      case Left(error) => throw new IllegalArgumentException(s"Some error occurred when looking up metric $metric: ${error.reason}.")
+                                      case Right(value) => asScalaRecursive(value.toList)
+                                    }
+                                    otherPropsMap.update(field, metricValue)
+                                  }
+                                }
+                                case _ => throw new IllegalArgumentException(s"Unexpected type in metric ($metric, $key)")
+                              }
+                              propsMap.update(metric, otherPropsMap)
+                            }}
+                          }
+                          case _ => throw new IllegalArgumentException(s"Unexpected type in metric ($metric, $key)")
                         }
-                        propsMap.update(metric, metricValue)
                       }
                     }
 
@@ -217,7 +281,36 @@ case class XMLResource(config: DataResourceConfig, mapping: DataResourceMapping)
                   case Success(b) => {
                     // Potential result
                     val propsMap = MutableMap[String, Any]()
-                    documentMapping.foreach { case (metric, key) => propsMap.update(metric, asScalaRecursive(xml.selectNodes(key)))}
+                    mapping.foreach {
+                      case (metric, key) => {
+                        key match {
+                          case JString(s) => {
+                            if (Parsing.isRawValue(s)) {
+                              propsMap.update(metric, asScalaRecursive(Parsing.getRawValue(s)))
+                            } else {
+                              propsMap.update(metric, asScalaRecursive(xml.selectNodes(s)))
+                            }
+                          }
+                          case JObject(o) => {
+                            val otherPropsMap = MutableMap[String, Any]()
+                            o.foreach{ case(field, value) => {
+                              value match {
+                                case JString(s) => {
+                                  if (Parsing.isRawValue(s)) {
+                                    propsMap.update(metric, asScalaRecursive(Parsing.getRawValue(s)))
+                                  } else {
+                                    propsMap.update(metric, asScalaRecursive(xml.selectNodes(s)))
+                                  }
+                                }
+                                case _ => throw new IllegalArgumentException(s"Unexpected type in metric ($metric, $key)")
+                              }
+                              propsMap.update(metric, otherPropsMap)
+                            }}
+                          }
+                          case _ => throw new IllegalArgumentException(s"Unexpected type in metric ($metric, $key)")
+                        }
+                      }
+                    }
 
                     val propsChecked = Try(Parsing.checkProps(propsMap.toMap))
                     propsChecked match {
@@ -272,7 +365,36 @@ case class XMLAPIResource(config: DataResourceConfig, mapping: DataResourceMappi
                   case Success(b) => {
                     // Potential result
                     val propsMap = MutableMap[String, Any]()
-                    documentMapping.foreach { case (metric, key) => propsMap.update(metric, asScalaRecursive(xml.selectNodes(key)))}
+                    mapping.foreach {
+                      case (metric, key) => {
+                        key match {
+                          case JString(s) => {
+                            if (Parsing.isRawValue(s)) {
+                              propsMap.update(metric, asScalaRecursive(Parsing.getRawValue(s)))
+                            } else {
+                              propsMap.update(metric, asScalaRecursive(xml.selectNodes(s)))
+                            }
+                          }
+                          case JObject(o) => {
+                            val otherPropsMap = MutableMap[String, Any]()
+                            o.foreach{ case(field, value) => {
+                              value match {
+                                case JString(s) => {
+                                  if (Parsing.isRawValue(s)) {
+                                    propsMap.update(metric, asScalaRecursive(Parsing.getRawValue(s)))
+                                  } else {
+                                    propsMap.update(metric, asScalaRecursive(xml.selectNodes(s)))
+                                  }
+                                }
+                                case _ => throw new IllegalArgumentException(s"Unexpected type in metric ($metric, $key)")
+                              }
+                              propsMap.update(metric, otherPropsMap)
+                            }}
+                          }
+                          case _ => throw new IllegalArgumentException(s"Unexpected type in metric ($metric, $key)")
+                        }
+                      }
+                    }
 
                     val propsChecked = Try(Parsing.checkProps(propsMap.toMap))
                     propsChecked match {
@@ -296,41 +418,104 @@ case class XMLAPIResource(config: DataResourceConfig, mapping: DataResourceMappi
 
 }
 
-//case class XLSXResource(config: DataResourceConfig, mapping: DataResourceMapping) extends XLSXResourceBase {
-//  override def extractMetrics: Try[Map[Metric, MetricValue]] = {
-//    val c = config.config
-//    // Potential result
-//    val mutableMap = MutableMap[Metric, MetricValue]()
-//    Try(c match {
-//      case (dataSource: DataSource, resourceType: ResourceType, sheet: XLSXSheet) => {
-//        val m = mapping.mapping
-//        val s = resourceType match {
-//          case ResourceType.XLSX => openSheet(dataSource, sheet)
-//          case _ => throw new IllegalArgumentException(s"Wrong resource type, must be ${ResourceType.XLSX} for XLSX data resources.")
-//        }
-//        m.foreach{case (metric, rowColumn) => {
-//          val metricRawValue = rowColumn.split(",")
-//          if (metricRawValue.length != 2) throw new IllegalArgumentException(s"Wrong metric path for metric $metric ($rowColumn): value must be two numbers (separated by comma) indicating row/cell position respectively.")
-//          else {
-//            val (row, column) = (metricRawValue.head.toInt, metricRawValue.tail.head.toInt)
-//            val cell = s.getRow(row).getCell(column)
-//            val cellValue = cell.getCellType match {
-//              case Cell.CELL_TYPE_BOOLEAN => cell.getBooleanCellValue
-//              case Cell.CELL_TYPE_NUMERIC => cell.getNumericCellValue
-//              case Cell.CELL_TYPE_STRING => {
-//                val cellValue = cell.getStringCellValue
-//                if (truthyValues.contains(cellValue)) true
-//                else if (falsyValues.contains(cellValue)) false
-//                else cellValue
-//              }
-//              case _ => throw new IllegalArgumentException(s"Cell located in sheet ${s.getSheetName} ($row,$column) is empty or contains an invalid value.")
-//            }
-//            mutableMap.update(metric, cellValue)
-//          }
-//        }}
-//        mutableMap.toMap
-//      }
-//      case _ => throw new IllegalArgumentException(s"Wrong number of parameters expected in XLSX resource configuration file.")
-//    })
-//  }
-//}
+case class XLSXResource(config: DataResourceConfig, mapping: DataResourceMapping) extends XLSXResourceBase {
+
+  def getCellValue(metric: String, s: Sheet, rowColumn: String) : Any = {
+    val metricRawValue = rowColumn.split(Tags.MAP_SEPARATOR)
+    if (metricRawValue.length != 2) throw new IllegalArgumentException(s"Wrong metric path for metric $metric ($rowColumn): value must be two numbers (separated by comma) indicating row/cell position respectively.")
+    else {
+      val (row, column) = (metricRawValue.head.toInt, metricRawValue.tail.head.toInt)
+      val cell = s.getRow(row).getCell(column)
+      cell.getCellType match {
+        case Cell.CELL_TYPE_BOOLEAN => cell.getBooleanCellValue
+        case Cell.CELL_TYPE_NUMERIC => cell.getNumericCellValue
+        case Cell.CELL_TYPE_STRING => {
+          val cellValue = cell.getStringCellValue
+          if (truthyValues.contains(cellValue)) true
+          else if (falsyValues.contains(cellValue)) false
+          else cellValue
+        }
+        case _ => throw new IllegalArgumentException(s"Cell located in sheet ${s.getSheetName} ($row,$column) is empty or contains an invalid value.")
+      }
+    }
+  }
+
+  override def extractDocuments: Try[(List[Document], List[Document])] = {
+    val c = config.config
+    // Potential result
+    val mutableMap = MutableMap[String, Any]()
+    Try {
+      (c.get("source"), c.get("resourceType"), c.get("sheet")) match {
+        case (Some(source: String), Some(resourceType: String), Some(sheet: String)) => {
+          val m = mapping.mapping
+          val sh = resourceType match {
+            case ResourceType.XLSX => openSheet(source, sheet)
+            case _ => throw new IllegalArgumentException(s"Wrong resource type, must be ${ResourceType.XLSX} for XLSX data resources.")
+          }
+
+          val documents = m.map(documentMapping => {
+            // Check document mapping types are supported
+            val mapping = Try(Parsing.checkProps(documentMapping))
+
+            mapping match {
+              case Success(mapping) => {
+                // Check searchable criteria
+                val validSearchableCriteria = Try(Parsing.validSearchableCriteria(mapping))
+
+                validSearchableCriteria match {
+                  case Success(b) => {
+                    // Potential result
+                    val propsMap = MutableMap[String, Any]()
+                    mapping.foreach {
+                      case (metric, key) => {
+                        key match {
+                          case JString(s) => {
+                            if (Parsing.isRawValue(s)) {
+                              propsMap.update(metric, asScalaRecursive(Parsing.getRawValue(s)))
+                            } else {
+                              propsMap.update(metric, asScalaRecursive(getCellValue(metric, sh, s)))
+                            }
+                          }
+                          case JObject(o) => {
+                            val otherPropsMap = MutableMap[String, Any]()
+                            o.foreach { case (field, value) => {
+                              value match {
+                                case JString(s) => {
+                                  if (Parsing.isRawValue(s)) {
+                                    propsMap.update(metric, asScalaRecursive(Parsing.getRawValue(s)))
+                                  } else {
+                                    propsMap.update(metric, asScalaRecursive(getCellValue(metric, sh, s)))
+                                  }
+                                }
+                                case _ => throw new IllegalArgumentException(s"Unexpected type in metric ($metric, $key)")
+                              }
+                              propsMap.update(metric, otherPropsMap)
+                            }
+                            }
+                          }
+                          case _ => throw new IllegalArgumentException(s"Unexpected type in metric ($metric, $key)")
+                        }
+                      }
+                    }
+
+                    val propsChecked = Try(Parsing.checkProps(propsMap.toMap))
+                    propsChecked match {
+                      case Success(props) => Parsing.extractDocument(props)
+                      case Failure(e) => throw new IllegalArgumentException(s"An error occurred when checking element properties for element $documentMapping: ${e.getMessage}.")
+                    }
+                  }
+                  case Failure(e) => throw new IllegalArgumentException(s"Invalid searchable criteria in document mapping: ${e.getMessage}")
+                }
+              }
+              case Failure(e) => throw new IllegalArgumentException(s"Invalid document mapping: ${e.getMessage}")
+            }
+          })
+
+          (documents.filter(_.isVertex), documents.filter(_.isEdge))
+        }
+        case _ => throw new IllegalArgumentException(s"Wrong number of parameters expected in XML API resource configuration file ('source' and 'resourceType' are required)")
+      }
+    }
+  }
+
+}

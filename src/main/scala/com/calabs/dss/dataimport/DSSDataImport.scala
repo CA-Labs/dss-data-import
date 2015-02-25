@@ -55,18 +55,19 @@ object DSSDataImport {
             configParams match {
               case Success(params) => {
 
-                val (dssConfig, dssMapping, resourceType) = params.get("resourceType") match {
-                  case Some(resourceType) => resourceType match {
-                    case ResourceType.JSON => (jsonResourceConfig.load(config.config), resourceMapper.load(config.mapping), resourceType)
-                    case ResourceType.JSON_API => (jsonApiResourceConfig.load(config.config), resourceMapper.load(config.mapping), resourceType)
-                    case ResourceType.XML => (xmlResourceConfig.load(config.config), resourceMapper.load(config.mapping), resourceType)
-                    case ResourceType.XML_API => (xmlApiResourceConfig.load(config.config), resourceMapper.load(config.mapping), resourceType)
-                    case _ => throw new IllegalArgumentException(s"Resource type $resourceType is not supported (supported types are ${ResourceType.JSON}, ${ResourceType.JSON_API}, ${ResourceType.XML}, ${ResourceType.XML_API}")
+                val result = Try {
+                  val (dssConfig, dssMapping, resourceType) = params.get("resourceType") match {
+                    case Some(resourceType) => resourceType match {
+                      case ResourceType.JSON => (jsonResourceConfig.load(config.config), resourceMapper.load(config.mapping), resourceType)
+                      case ResourceType.JSON_API => (jsonApiResourceConfig.load(config.config), resourceMapper.load(config.mapping), resourceType)
+                      case ResourceType.XML => (xmlResourceConfig.load(config.config), resourceMapper.load(config.mapping), resourceType)
+                      case ResourceType.XML_API => (xmlApiResourceConfig.load(config.config), resourceMapper.load(config.mapping), resourceType)
+                      case ResourceType.XLSX => (xlsxResourceConfig.load(config.config), resourceMapper.load(config.mapping), resourceType)
+                      case _ => throw new IllegalArgumentException(s"Resource type $resourceType is not supported (supported types are ${ResourceType.JSON}, ${ResourceType.JSON_API}, ${ResourceType.XML}, ${ResourceType.XML_API}, ${ResourceType.XLSX}")
+                    }
+                    case None => throw new NoSuchElementException(s"resourceType key not found in configuration file located at ${config.config}")
                   }
-                  case None => throw new NoSuchElementException(s"resourceType key not found in configuration file located at ${config.config}")
-                }
 
-                val result = Try(
                   (dssConfig, dssMapping, resourceType) match {
                     case (Success(c), Success(m), resourceType) => {
                       val drc = DataResourceConfig(c)
@@ -76,6 +77,7 @@ object DSSDataImport {
                         case ResourceType.JSON_API => JSONAPIResource(drc, drm).extractDocuments.get
                         case ResourceType.XML => XMLResource(drc, drm).extractDocuments.get
                         case ResourceType.XML_API => XMLAPIResource(drc, drm).extractDocuments.get
+                        case ResourceType.XLSX => XLSXResource(drc, drm).extractDocuments.get
                       }
                     }
                     case (Failure(c), Success(m), _) => {
@@ -88,7 +90,7 @@ object DSSDataImport {
                       throw new IllegalArgumentException(s"Neither the resource config file nor the mapping file could be loaded: ${c.getMessage}, ${m.getMessage}")
                     }
                   }
-                )
+                }
 
                 println(outputToJSON(result))
 

@@ -23,8 +23,7 @@ object Implicits {
    * @param value The value to convert.
    * @return
    */
-  implicit def asScalaRecursive(value: Any) : Any = {
-
+  def asScalaRecursive(value: Any) : Any = {
     implicit val formats = DefaultFormats
     value match {
       // Java collections

@@ -58,7 +58,7 @@ object Config {
         case Some(resourceType) => throw new IllegalArgumentException(s"Invalid resource type for JSON resource (should be ${ResourceType.JSON} and not $resourceType)")
         case None => throw new NoSuchElementException(s"Missing source parameter 'resourceType' in resource config file")
       }
-      Map[String, Any](("source" -> source), ("resourceType" -> resourceType))
+      Map[String, Any]("source" -> source, "resourceType" -> resourceType)
     }
 
   }
@@ -96,7 +96,7 @@ object Config {
         }
         case None => Map[String, Any]()
       }
-      Map[String, Any](("source" -> source), ("resourceType" -> resourceType), ("headers" -> headers))
+      Map[String, Any]("source" -> source, "resourceType" -> resourceType, "headers" -> headers)
     }
 
   }
@@ -121,7 +121,7 @@ object Config {
         case Some(resourceType) => throw new IllegalArgumentException(s"Invalid resource type for XML resource (should be ${ResourceType.XML} and not $resourceType)")
         case None => throw new NoSuchElementException(s"Missing source parameter 'resourceType' in resource config file")
       }
-      Map[String, Any](("source" -> source), ("resourceType" -> resourceType))
+      Map[String, Any]("source" -> source, "resourceType" -> resourceType)
     }
 
   }
@@ -159,36 +159,36 @@ object Config {
         }
         case None => Map[String,Any]()
       }
-      Map[String, Any](("source" -> source), ("resourceType", resourceType), ("headers" -> headers))
+      Map[String, Any]("source" -> source, "resourceType" -> resourceType, "headers" -> headers)
     }
   }
 
-//  implicit val xlsxResourceConfig : Config[XLSXResource] = new Config[XLSXResource]{
-//
-//    override def load(path: String): Try[Product] = {
-//      // XLSX resource load
-//      val sourceFile = Source.fromFile(path)
-//      val sourceContent = sourceFile.getLines()
-//      Try(check(parseConfigLines(sourceContent)))
-//    }
-//
-//    override def check(config: Map[ConfigKey, ConfigValue]): Product = {
-//      // XLSX resource config check (mandatory properties are: source, resourceType and sheet)
-//      val source = config.get("source") match {
-//        case Some(source) => source.toString
-//        case None => throw new NoSuchElementException("Missing source parameter in resource config file.")
-//      }
-//      val resourceType = config.get("resourceType") match {
-//        case Some(resourceType) => resourceType.toString
-//        case None => throw new NoSuchElementException("Missing resource type parameter in resource config file.")
-//      }
-//      val sheet = config.get("sheet") match {
-//        case Some(sheet) => sheet.toString
-//        case None => throw new NoSuchElementException("Missing sheet parameter in resource config file.")
-//      }
-//      (source, resourceType, sheet)
-//    }
-//
-//  }
+  implicit val xlsxResourceConfig : Config[XLSXResource] = new Config[XLSXResource]{
+
+    override def load(path: String): Try[Map[String,Any]] = {
+      // XLSX resource load
+      val sourceFile = Source.fromFile(path)
+      val sourceContent = sourceFile.getLines().toList
+      Try(check(Parsing.extractConfig(sourceContent)))
+    }
+
+    override def check(config: Map[String, Any]): Map[String,Any] = {
+      // XLSX resource config check (mandatory properties are: source, resourceType and sheet)
+      val source = config.get("source") match {
+        case Some(source) => source.toString
+        case None => throw new NoSuchElementException("Missing source parameter in resource config file.")
+      }
+      val resourceType = config.get("resourceType") match {
+        case Some(resourceType) => resourceType.toString
+        case None => throw new NoSuchElementException("Missing resource type parameter in resource config file.")
+      }
+      val sheet = config.get("sheet") match {
+        case Some(sheet) => sheet.toString
+        case None => throw new NoSuchElementException("Missing sheet parameter in resource config file.")
+      }
+      Map[String, Any]("source" -> source, "resourceType" -> resourceType, "sheet" -> sheet)
+    }
+
+  }
 
 }

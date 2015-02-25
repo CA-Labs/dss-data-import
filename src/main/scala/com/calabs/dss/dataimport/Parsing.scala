@@ -5,7 +5,7 @@ import org.json4s.JsonAST._
 import scala.annotation.tailrec
 import scala.collection.MapLike
 import scala.collection.mutable.{Map => MutableMap}
-import scala.util.{Failure, Success}
+import scala.util.{Try, Failure, Success}
 
 /**
  * Created by Jordi Aranda
@@ -52,6 +52,33 @@ private[calabs] object Parsing {
     val SEARCHABLE_CRITERIA = "__"
     val FROM = SEARCHABLE_CRITERIA + "from"
     val TO = SEARCHABLE_CRITERIA + "to"
+    val LABEL = "label"
+    val ID = "id"
+    val IMPORT_ID = "import_" + ID
+    val RAW_VALUE_START = "->"
+    val RAW_VALUE_END = "<-"
+  }
+
+  /**
+   * Determines whether a mapping value is already a value and not a (JSON/X)path. This is
+   * mainly used to allow hard-coding values for certain property keys so that data
+   * does not need to be extracted.
+   * @param mappingValue A potential mapping path or raw value.
+   * @return
+   */
+  def isRawValue(mappingValue: String) : Boolean = mappingValue.startsWith(Tags.RAW_VALUE_START) && mappingValue.endsWith(Tags.RAW_VALUE_END)
+
+  /**
+   * Tries to convert a raw value to Int, otherwise leaves it as it is, String.
+   * @param mappingValue A raw value.
+   * @return
+   */
+  def getRawValue(mappingValue: String) : Any = {
+    val value = mappingValue.replace(Tags.RAW_VALUE_START, "").replace(Tags.RAW_VALUE_END, "")
+    Try(value.toInt) match {
+      case Success(value) => value
+      case Failure(e) => value
+    }
   }
 
   /**
@@ -157,7 +184,7 @@ private[calabs] object Parsing {
    */
   def checkProps(props: Map[String, Any]) : Map[String, JValue] = {
     def checkProp(prop: Any) : JValue = prop match {
-      case string: String => JString(string)
+      case string: String => if (string.split(Tags.MAP_KEY_VALUE_SEPARATOR).length > 1) checkProp(stringToMap(string)) else JString(string)
       case int: Int => JInt(int)
       case double: Double => JDouble(double)
       case boolean: Boolean => JBool(boolean)
