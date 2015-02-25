@@ -425,17 +425,22 @@ case class XLSXResource(config: DataResourceConfig, mapping: DataResourceMapping
     if (metricRawValue.length != 2) throw new IllegalArgumentException(s"Wrong metric path for metric $metric ($rowColumn): value must be two numbers (separated by comma) indicating row/cell position respectively.")
     else {
       val (row, column) = (metricRawValue.head.toInt, metricRawValue.tail.head.toInt)
-      val cell = s.getRow(row).getCell(column)
-      cell.getCellType match {
-        case Cell.CELL_TYPE_BOOLEAN => cell.getBooleanCellValue
-        case Cell.CELL_TYPE_NUMERIC => cell.getNumericCellValue
-        case Cell.CELL_TYPE_STRING => {
-          val cellValue = cell.getStringCellValue
-          if (truthyValues.contains(cellValue)) true
-          else if (falsyValues.contains(cellValue)) false
-          else cellValue
+      val cell = Option(s.getRow(row).getCell(column))
+      cell match {
+        case Some(c) => {
+          c.getCellType match {
+            case Cell.CELL_TYPE_BOOLEAN => c.getBooleanCellValue
+            case Cell.CELL_TYPE_NUMERIC => c.getNumericCellValue
+            case Cell.CELL_TYPE_STRING => {
+              val cellValue = c.getStringCellValue
+              if (truthyValues.contains(cellValue)) true
+              else if (falsyValues.contains(cellValue)) false
+              else cellValue
+            }
+            case _ => throw new IllegalArgumentException(s"Cell located in sheet ${s.getSheetName} ($row,$column) is empty or contains an invalid value.")
+          }
         }
-        case _ => throw new IllegalArgumentException(s"Cell located in sheet ${s.getSheetName} ($row,$column) is empty or contains an invalid value.")
+        case None => throw new IllegalArgumentException(s"No cell is available in row $row and column $column")
       }
     }
   }
