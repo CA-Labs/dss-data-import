@@ -454,7 +454,12 @@ case class XLSXResource(config: DataResourceConfig, mapping: DataResourceMapping
         case (Some(source: String), Some(resourceType: String), Some(sheet: String)) => {
           val m = mapping.mapping
           val sh = resourceType match {
-            case ResourceType.XLSX => openSheet(source, sheet)
+            case ResourceType.XLSX => {
+              Option(openSheet(source, sheet)) match {
+                case Some(s) => s
+                case None => throw new IllegalArgumentException(s"No sheet named $sheet was found in file $source")
+              }
+            }
             case _ => throw new IllegalArgumentException(s"Wrong resource type, must be ${ResourceType.XLSX} for XLSX data resources.")
           }
 
