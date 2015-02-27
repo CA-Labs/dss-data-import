@@ -422,13 +422,31 @@ case class XLSXResource(config: DataResourceConfig, mapping: DataResourceMapping
 
   def getCellValue(metric: String, s: Sheet, rowColumn: String) : Any = {
     val metricRawValue = rowColumn.split(Tags.MAP_SEPARATOR)
-    if (metricRawValue.length != 2) throw new IllegalArgumentException(s"Wrong metric path for metric $metric ($rowColumn): value must be two numbers (separated by comma) indicating row/cell position respectively.")
+    if (metricRawValue.length != 2 && metricRawValue.length != 3) throw new IllegalArgumentException(s"Wrong metric path/flag for metric $metric ($rowColumn): value must be three numbers (separated by comma) indicating row/cell position and flag (behaviour) respectively. Flag can be optionally omitted, indicating default behaviour")
     else {
-      val (row, column) = (metricRawValue.head.toInt, metricRawValue.tail.head.toInt)
+      val (row, column, flag) = if (metricRawValue.length == 2) {
+        val r = Try(metricRawValue.head.toInt - 1)
+        val c = Try(metricRawValue.tail.head.toInt - 1)
+        (r, c) match {
+          case (Failure(_), _) => throw new IllegalArgumentException(s"Invalid row number in $rowColumn")
+          case (_, Failure(_)) => throw new IllegalArgumentException(s"Invalid column number in $rowColumn")
+          case _ => (r.get, c.get, None)
+        }
+      } else {
+        val r = Try(metricRawValue.head.toInt - 1)
+        val c = Try(metricRawValue.tail.head.toInt - 1)
+        val f = Try(Some(metricRawValue.tail.tail.head.toInt))
+        (r,c,f) match {
+          case (Failure(_), _, _) => throw new IllegalArgumentException(s"Invalid row number in $rowColumn")
+          case (_, Failure(_), _) => throw new IllegalArgumentException(s"Invalid column number in $rowColumn")
+          case (_, _, Failure(_)) => throw new IllegalArgumentException(s"Invalid flag number in $rowColumn")
+          case _ => (r.get, c.get, f.get)
+        }
+      }
       val cell = Option(s.getRow(row).getCell(column))
       cell match {
         case Some(c) => {
-          c.getCellType match {
+          val value = c.getCellType match {
             case Cell.CELL_TYPE_BOOLEAN => c.getBooleanCellValue
             case Cell.CELL_TYPE_NUMERIC => c.getNumericCellValue
             case Cell.CELL_TYPE_STRING => {
@@ -438,6 +456,18 @@ case class XLSXResource(config: DataResourceConfig, mapping: DataResourceMapping
               else cellValue
             }
             case _ => throw new IllegalArgumentException(s"Cell located in sheet ${s.getSheetName} ($row,$column) is empty or contains an invalid value.")
+          }
+          flag match {
+            case Some(f) => f match {
+              case 0 => value // default behaviour
+              case 1 => value match { // use flags (0 => default behaviour, 1 => check if cell is empty or not (value is then false or true respectively)
+                case b: Boolean => true
+                case n: Double => true
+                case s: String => if (s == "") false else true
+              }
+              case _ => throw new IllegalArgumentException(s"Invalid flag: only 0 (default behaviour) and 1 (if cell empty => false, true otherwise) are valid flags")
+            }
+            case None => value
           }
         }
         case None => throw new IllegalArgumentException(s"No cell is available in row $row and column $column")
